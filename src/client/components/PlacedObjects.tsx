@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { Text, TransformControls } from "@react-three/drei";
+import { Html, TransformControls } from "@react-three/drei";
 import { useStore } from "../lib/store";
 import type { PlacedObject, PlacedStl, PlacedText } from "@shared/types";
 
@@ -41,9 +41,11 @@ function TextBody({ obj }: TextBodyProps) {
   );
 }
 
-// Rendered INSIDE the Draggable's rotated/translated group so it follows the
-// STL's pose. Local coords: (labelOffsetX, labelOffsetY, -0.1) — just under
-// the STL's anchor in its local Z, which is the floor of the rotated cavity.
+// Label preview. Rendered INSIDE the Draggable's rotated group so it follows
+// the STL's pose. Each line is a thin colored backplate (always visible 3D
+// mesh, even if the HTML layer below fails) plus a drei <Html transform> so
+// the actual text content shows up using the browser's fonts (no external
+// font CDN required, unlike drei's <Text>).
 function StlLabelPreview({ obj }: { obj: PlacedStl }) {
   const raw = obj.label;
   if (!raw) return null;
@@ -56,26 +58,44 @@ function StlLabelPreview({ obj }: { obj: PlacedStl }) {
   const lineHeight = size * 1.25;
   const ox = obj.labelOffsetX ?? 0;
   const oy = obj.labelOffsetY ?? 0;
+  const longest = Math.max(1, ...lines.map((l) => l.length));
+  const plateW = longest * size * 0.65;
+  const plateD = size * 1.1;
   return (
     <group renderOrder={10}>
       {lines.map((line, i) => {
         const yOffset = (lines.length - 1) / 2 - i;
+        const ly = oy + yOffset * lineHeight;
         return (
-          <Text
-            key={`${i}-${line}`}
-            position={[ox, oy + yOffset * lineHeight, -0.1]}
-            fontSize={size}
-            color="#e6caff"
-            anchorX="center"
-            anchorY="middle"
-            outlineWidth={0.15}
-            outlineColor="#2a0e4a"
-            material-depthTest={false}
-            material-transparent={true}
-            renderOrder={1000}
-          >
-            {line}
-          </Text>
+          <group key={`${i}-${line}`} position={[ox, ly, -0.1]}>
+            <mesh renderOrder={1000}>
+              <boxGeometry args={[plateW, plateD, 0.05]} />
+              <meshBasicMaterial color="#7d4cd9" transparent opacity={0.45} depthTest={false} />
+            </mesh>
+            <Html
+              transform
+              center
+              occlude={false}
+              distanceFactor={10}
+              zIndexRange={[10000, 0]}
+              style={{ pointerEvents: "none", userSelect: "none" }}
+            >
+              <div
+                style={{
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontFamily: "system-ui, -apple-system, sans-serif",
+                  fontSize: `${size * 6}px`,
+                  letterSpacing: "0.04em",
+                  textShadow: "0 0 4px #000, 0 0 2px #000",
+                  whiteSpace: "nowrap",
+                  lineHeight: 1,
+                }}
+              >
+                {line}
+              </div>
+            </Html>
+          </group>
         );
       })}
     </group>
