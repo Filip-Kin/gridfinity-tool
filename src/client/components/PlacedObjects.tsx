@@ -65,11 +65,14 @@ function StlLabelPreview({ obj }: { obj: PlacedStl }) {
             key={`${i}-${line}`}
             position={[ox, oy + yOffset * lineHeight, -0.1]}
             fontSize={size}
-            color="#cf9fff"
+            color="#e6caff"
             anchorX="center"
             anchorY="middle"
-            outlineWidth={0.05}
-            outlineColor="#3a1c5a"
+            outlineWidth={0.15}
+            outlineColor="#2a0e4a"
+            material-depthTest={false}
+            material-transparent={true}
+            renderOrder={1000}
           >
             {line}
           </Text>

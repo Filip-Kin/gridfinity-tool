@@ -1,6 +1,65 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "../lib/store";
 import type { PlacedStl, PlacedText, GridzMode } from "@shared/types";
+
+// Numeric input that doesn't reformat the value while you're typing.
+// `value` (number from state) is only re-applied to the visible text when the
+// input isn't focused; while focused, the user's raw text is preserved so
+// typing "12" doesn't get re-rendered as "1.00" after the first keystroke.
+function NumInput({
+  value,
+  onChange,
+  step = 1,
+  min,
+  max,
+  placeholder,
+  style,
+  disabled,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  step?: number;
+  min?: number;
+  max?: number;
+  placeholder?: string;
+  style?: React.CSSProperties;
+  disabled?: boolean;
+}) {
+  const fmt = (n: number) => {
+    if (!Number.isFinite(n)) return "";
+    const s = n.toFixed(4);
+    return s.replace(/\.?0+$/, "");
+  };
+  const focusedRef = useRef(false);
+  const [text, setText] = useState(fmt(value));
+  useEffect(() => {
+    if (!focusedRef.current) setText(fmt(value));
+  }, [value]);
+  return (
+    <input
+      type="number"
+      value={text}
+      step={step}
+      min={min}
+      max={max}
+      placeholder={placeholder}
+      style={style}
+      disabled={disabled}
+      onFocus={() => {
+        focusedRef.current = true;
+      }}
+      onBlur={() => {
+        focusedRef.current = false;
+        setText(fmt(value));
+      }}
+      onChange={(e) => {
+        setText(e.target.value);
+        const v = parseFloat(e.target.value);
+        if (Number.isFinite(v)) onChange(v);
+      }}
+    />
+  );
+}
 
 function NumField({
   label,
@@ -20,17 +79,7 @@ function NumField({
   return (
     <div className="field">
       <label>{label}</label>
-      <input
-        type="number"
-        value={value}
-        step={step}
-        min={min}
-        max={max}
-        onChange={(e) => {
-          const n = parseFloat(e.target.value);
-          if (Number.isFinite(n)) onChange(n);
-        }}
-      />
+      <NumInput value={value} onChange={onChange} step={step} min={min} max={max} />
     </div>
   );
 }
@@ -228,14 +277,11 @@ function ObjectsPanel() {
                   <label>Position</label>
                   <div className="row3">
                     {([0, 1, 2] as const).map((i) => (
-                      <input
+                      <NumInput
                         key={i}
-                        type="number"
-                        step="0.5"
-                        value={o.position[i].toFixed(2)}
-                        onChange={(e) => {
-                          const v = parseFloat(e.target.value);
-                          if (!Number.isFinite(v)) return;
+                        value={o.position[i]}
+                        step={0.5}
+                        onChange={(v) => {
                           const p: [number, number, number] = [
                             o.position[0],
                             o.position[1],
@@ -252,39 +298,27 @@ function ObjectsPanel() {
                   <label>Rotation X/Y/Z</label>
                   <div className="row3">
                     {o.kind === "stl" ? (
-                      <input
-                        type="number"
-                        step="5"
-                        value={((o as PlacedStl).rotationX ?? 0).toFixed(1)}
-                        onChange={(e) => {
-                          const v = parseFloat(e.target.value);
-                          if (Number.isFinite(v)) updateObject(o.id, { rotationX: v });
-                        }}
+                      <NumInput
+                        value={(o as PlacedStl).rotationX ?? 0}
+                        step={5}
+                        onChange={(v) => updateObject(o.id, { rotationX: v })}
                       />
                     ) : (
-                      <input type="number" disabled value="0" />
+                      <NumInput value={0} step={5} onChange={() => {}} disabled />
                     )}
                     {o.kind === "stl" ? (
-                      <input
-                        type="number"
-                        step="5"
-                        value={((o as PlacedStl).rotationY ?? 0).toFixed(1)}
-                        onChange={(e) => {
-                          const v = parseFloat(e.target.value);
-                          if (Number.isFinite(v)) updateObject(o.id, { rotationY: v });
-                        }}
+                      <NumInput
+                        value={(o as PlacedStl).rotationY ?? 0}
+                        step={5}
+                        onChange={(v) => updateObject(o.id, { rotationY: v })}
                       />
                     ) : (
-                      <input type="number" disabled value="0" />
+                      <NumInput value={0} step={5} onChange={() => {}} disabled />
                     )}
-                    <input
-                      type="number"
-                      step="5"
-                      value={o.rotationZ.toFixed(1)}
-                      onChange={(e) => {
-                        const v = parseFloat(e.target.value);
-                        if (Number.isFinite(v)) updateObject(o.id, { rotationZ: v });
-                      }}
+                    <NumInput
+                      value={o.rotationZ}
+                      step={5}
+                      onChange={(v) => updateObject(o.id, { rotationZ: v })}
                     />
                   </div>
                 </div>
@@ -329,25 +363,17 @@ function ObjectsPanel() {
                         <div className="field">
                           <label>Label offset XY</label>
                           <div className="row3" style={{ gridTemplateColumns: "1fr 1fr" }}>
-                            <input
-                              type="number"
-                              step="1"
+                            <NumInput
+                              value={(o as PlacedStl).labelOffsetX ?? 0}
+                              step={1}
                               placeholder="X"
-                              value={((o as PlacedStl).labelOffsetX ?? 0).toFixed(1)}
-                              onChange={(e) => {
-                                const v = parseFloat(e.target.value);
-                                if (Number.isFinite(v)) updateObject(o.id, { labelOffsetX: v });
-                              }}
+                              onChange={(v) => updateObject(o.id, { labelOffsetX: v })}
                             />
-                            <input
-                              type="number"
-                              step="1"
+                            <NumInput
+                              value={(o as PlacedStl).labelOffsetY ?? 0}
+                              step={1}
                               placeholder="Y"
-                              value={((o as PlacedStl).labelOffsetY ?? 0).toFixed(1)}
-                              onChange={(e) => {
-                                const v = parseFloat(e.target.value);
-                                if (Number.isFinite(v)) updateObject(o.id, { labelOffsetY: v });
-                              }}
+                              onChange={(v) => updateObject(o.id, { labelOffsetY: v })}
                             />
                           </div>
                         </div>

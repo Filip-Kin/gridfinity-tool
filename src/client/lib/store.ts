@@ -2,7 +2,9 @@ import { create } from "zustand";
 import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import {
+  BASE_HEIGHT_MM,
   DEFAULT_BIN,
+  UNIT_HEIGHT_MM,
   type PlacedObject,
   type PlacedStl,
   type PlacedText,
@@ -77,7 +79,14 @@ interface AppState {
 }
 
 const loader = new STLLoader();
-const BASE_HEIGHT_MM = 4.75;
+// BASE_HEIGHT_MM is imported from @shared/types (= 7, matching the library).
+// Helper for "place object so it's 50% buried below the bin top": z that
+// puts the bin's top surface at the object's vertical midpoint. Capped at
+// the cavity floor so we never place objects inside the base structure.
+function placementZForHeight(binGridz: number, objectHeight: number): number {
+  const binTopZ = binGridz * UNIT_HEIGHT_MM;
+  return Math.max(BASE_HEIGHT_MM, binTopZ - objectHeight / 2);
+}
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 10);
@@ -227,19 +236,21 @@ export const useStore = create<AppState>((set, get) => ({
     const upload = get().uploads.get(filename);
     if (!upload) return;
     const bin = get().bin;
-    // Default placement: centered XY on the bin, anchor (Z bottom) on the cavity floor.
-    // For multi-file batches, spread along X using the bbox width so they don't overlap.
+    // Default placement: centered XY on the bin, Z so that ~50% of the STL is
+    // below the bin top (i.e. tool sticks out roughly halfway).
     let cx = (bin.gridx * 42) / 2;
     const cy = (bin.gridy * 42) / 2;
     if (indexInBatch !== undefined && indexInBatch > 0) {
       const size = bbSize(upload.bbox);
       cx += indexInBatch * (size.x + 4);
     }
+    const h = bbSize(upload.bbox).z;
+    const cz = placementZForHeight(bin.gridz, h);
     const obj: PlacedStl = {
       id: uid(),
       kind: "stl",
       filename,
-      position: [cx, cy, BASE_HEIGHT_MM],
+      position: [cx, cy, cz],
       rotationZ: 0,
       oversizePct: 2,
       anchorOffset: upload.anchorOffset,
@@ -345,7 +356,7 @@ export const useStore = create<AppState>((set, get) => ({
     set((s) => ({
       objects: s.objects.map((o) => {
         if (o.id !== selectedId) return o;
-        const z = o.kind === "stl" ? BASE_HEIGHT_MM : BASE_HEIGHT_MM + 0.5;
+        const z = BASE_HEIGHT_MM;
         return { ...o, position: [o.position[0], o.position[1], z] as Vec3 };
       }),
       ...invalidateRender(s.lastStlBlobUrl),
@@ -458,7 +469,9 @@ export const useStore = create<AppState>((set, get) => ({
       const row = Math.floor(i / cols);
       const x = gapX + cellW / 2 + col * (cellW + gapX);
       const y = gapY + cellD / 2 + row * (cellD + gapY);
-      newPos.set(item.id, [x, y, BASE_HEIGHT_MM]);
+      // Per-tool Z: ~50% buried under the (about-to-be-set) bin top.
+      const z = placementZForHeight(gridz, item.h);
+      newPos.set(item.id, [x, y, z]);
     });
     set((s) => ({
       bin: { ...s.bin, gridx, gridy, gridz, gridzMode: "increments" },
