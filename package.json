@@ -1,0 +1,32 @@
+{
+  "name": "gridfinity-tool",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:server": "bun --hot run src/server/index.ts",
+    "dev:client": "bun --bun x vite",
+    "dev": "bun --bun x concurrently -k -n server,client -c blue,magenta \"bun run dev:server\" \"bun run dev:client\"",
+    "build": "bun --bun x vite build",
+    "start": "NODE_ENV=production bun run src/server/index.ts",
+    "typecheck": "bun --bun x tsc --noEmit"
+  },
+  "dependencies": {
+    "@react-three/drei": "^9.114.0",
+    "@react-three/fiber": "^8.17.10",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.169.0",
+    "zustand": "^5.0.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.13",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/three": "^0.169.0",
+    "@vitejs/plugin-react": "^4.3.3",
+    "concurrently": "^9.0.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}
