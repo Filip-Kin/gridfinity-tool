@@ -450,6 +450,8 @@ export function Sidebar() {
   const setGizmoMode = useStore((s) => s.setGizmoMode);
   const viewMode = useStore((s) => s.viewMode);
   const setViewMode = useStore((s) => s.setViewMode);
+  const filename = useStore((s) => s.filename);
+  const setFilename = useStore((s) => s.setFilename);
   const objects = useStore((s) => s.objects);
   const hasRender = useStore((s) => s.lastStlBlobUrl !== null);
   const stale = useStore((s) => s.stale);
@@ -521,6 +523,24 @@ export function Sidebar() {
           >
             Rotate
           </button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <input
+            type="text"
+            value={filename}
+            placeholder="filename"
+            onChange={(e) => setFilename(e.target.value)}
+            style={{
+              flex: 1,
+              background: "var(--panel-2)",
+              border: "1px solid var(--border)",
+              color: "var(--text)",
+              padding: "4px 6px",
+              borderRadius: 4,
+              fontSize: 13,
+            }}
+          />
+          <span className="muted" style={{ fontSize: 11 }}>.stl</span>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           <button className="primary" style={{ flex: 1 }} disabled={!canRender} onClick={() => renderBin()}>

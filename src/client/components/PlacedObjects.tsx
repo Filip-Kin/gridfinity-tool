@@ -41,6 +41,9 @@ function TextBody({ obj }: TextBodyProps) {
   );
 }
 
+// Rendered INSIDE the Draggable's rotated/translated group so it follows the
+// STL's pose. Local coords: (labelOffsetX, labelOffsetY, -0.1) — just under
+// the STL's anchor in its local Z, which is the floor of the rotated cavity.
 function StlLabelPreview({ obj }: { obj: PlacedStl }) {
   const raw = obj.label;
   if (!raw) return null;
@@ -53,11 +56,6 @@ function StlLabelPreview({ obj }: { obj: PlacedStl }) {
   const lineHeight = size * 1.25;
   const ox = obj.labelOffsetX ?? 0;
   const oy = obj.labelOffsetY ?? 0;
-  // Match SCAD: label is axis-aligned in world coords (not under STL rotation).
-  const x = obj.position[0] + ox;
-  const y = obj.position[1] + oy;
-  // Just under the STL bottom so it looks like it'll sit on the cavity floor.
-  const z = obj.position[2] - 0.1;
   return (
     <group renderOrder={10}>
       {lines.map((line, i) => {
@@ -65,7 +63,7 @@ function StlLabelPreview({ obj }: { obj: PlacedStl }) {
         return (
           <Text
             key={`${i}-${line}`}
-            position={[x, y + yOffset * lineHeight, z]}
+            position={[ox, oy + yOffset * lineHeight, -0.1]}
             fontSize={size}
             color="#cf9fff"
             anchorX="center"
@@ -129,8 +127,8 @@ function Draggable({ obj }: DraggableProps) {
         }}
       >
         {obj.kind === "stl" ? <StlBody obj={obj} /> : <TextBody obj={obj} />}
+        {obj.kind === "stl" && <StlLabelPreview obj={obj} />}
       </group>
-      {obj.kind === "stl" && <StlLabelPreview obj={obj} />}
       {selected && ready && groupRef.current && (
         <TransformControls
           object={groupRef.current}

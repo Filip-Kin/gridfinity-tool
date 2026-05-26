@@ -45,6 +45,7 @@ interface AppState {
   selectedId: string | null;
   gizmoMode: GizmoMode;
   viewMode: ViewMode;
+  filename: string;
   status: Status;
   lastError: string | null;
   lastStlBlobUrl: string | null;
@@ -55,6 +56,7 @@ interface AppState {
   setBin: (patch: Partial<BinConfig>) => void;
   setGizmoMode: (mode: GizmoMode) => void;
   setViewMode: (mode: ViewMode) => void;
+  setFilename: (name: string) => void;
   ensureSession: () => Promise<string>;
   uploadFiles: (files: FileList | File[]) => Promise<void>;
   addStlPlacement: (filename: string, indexInBatch?: number) => void;
@@ -150,6 +152,7 @@ export const useStore = create<AppState>((set, get) => ({
   selectedId: null,
   gizmoMode: "translate",
   viewMode: "edit",
+  filename: "gridfinity-bin",
   status: "idle",
   lastError: null,
   lastStlBlobUrl: null,
@@ -162,6 +165,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   setGizmoMode: (mode) => set({ gizmoMode: mode }),
   setViewMode: (mode) => set({ viewMode: mode }),
+  setFilename: (name) => set({ filename: name }),
 
   ensureSession: async () => {
     const existing = get().sessionId;
@@ -509,9 +513,11 @@ export const useStore = create<AppState>((set, get) => ({
   downloadStl: () => {
     const url = get().lastStlBlobUrl;
     if (!url) return;
+    const raw = (get().filename || "gridfinity-bin").trim();
+    const safe = raw.replace(/[\\/:"*?<>|]+/g, "_").replace(/\.stl$/i, "") || "gridfinity-bin";
     const a = document.createElement("a");
     a.href = url;
-    a.download = "gridfinity-bin.stl";
+    a.download = `${safe}.stl`;
     document.body.appendChild(a);
     a.click();
     a.remove();

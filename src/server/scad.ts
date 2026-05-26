@@ -39,11 +39,11 @@ function renderStl(o: PlacedStl, stlPath: string): string {
   ].join("\n  ");
 }
 
-// Debossed text engraved under the bottom of an STL's cavity. Z auto-tracks
-// the STL's own Z position (o.position[2]) — so if the user moves the STL up,
-// the label still sits just under that cavity floor, not the container floor.
-// Cut goes from STL.z - depth up through STL.z + tiny overlap, so when the
-// tool is removed you see engraved text right where the tool was sitting.
+// Debossed text engraved at the bottom of an STL's cavity. Placed in the STL's
+// LOCAL rotated frame so it follows the tool's pose: tip a tool on its side
+// and the label tips with it (still appears on the cavity floor from the
+// tool's perspective). Label local position: (labelOffsetX, labelOffsetY,
+// -depth + small overlap) — i.e. just under the STL's anchor in local Z.
 function renderStlLabel(o: PlacedStl): string {
   const raw = o.label;
   if (!raw) return "";
@@ -55,16 +55,19 @@ function renderStlLabel(o: PlacedStl): string {
   const font = "Liberation Sans:style=Bold";
   const ox = o.labelOffsetX ?? 0;
   const oy = o.labelOffsetY ?? 0;
-  const x = o.position[0] + ox;
-  const y = o.position[1] + oy;
-  // Top of label geometry sits slightly above STL's bottom so the boolean cut is clean.
-  const z = o.position[2] - depth + 0.05;
+  const [px, py, pz] = o.position;
+  const rx = o.rotationX ?? 0;
+  const ry = o.rotationY ?? 0;
+  const rz = o.rotationZ;
+  const localZ = -depth + 0.05;
   const blocks = lines.map((line, i) => {
     const yOffset = (lines.length - 1) / 2 - i;
-    const ly = y + yOffset * lineHeight;
+    const ly = oy + yOffset * lineHeight;
     return [
       `// label for ${o.filename}: ${line.slice(0, 32)}`,
-      `translate([${num(x)}, ${num(ly)}, ${num(z)}])`,
+      `translate([${num(px)}, ${num(py)}, ${num(pz)}])`,
+      `rotate([${num(rx)}, ${num(ry)}, ${num(rz)}])`,
+      `translate([${num(ox)}, ${num(ly)}, ${num(localZ)}])`,
       `linear_extrude(height = ${num(depth + 0.1)}, center = false)`,
       `text("${escapeScadString(line)}", size = ${num(size)}, font = "${escapeScadString(font)}", halign = "center", valign = "center", $fn = 32);`,
     ].join("\n  ");
@@ -104,7 +107,10 @@ export function buildScad({ bin, objects, stlPathFor, libraryPath }: ScadBuildAr
   ].join("\n");
 
   const gridzDefine = GRIDZ_DEFINE_MAP[bin.gridzMode];
-  const holeOpts = `bundle_hole_options(refined_holes=${!bin.magnetHoles && !bin.screwHoles}, magnet_holes=${bin.magnetHoles}, screw_holes=${bin.screwHoles}, crush_ribs=true, chamfer_holes=true, printable_hole_top=true)`;
+  // Library uses SINGULAR names: refined_hole / magnet_hole / screw_hole /
+  // chamfer / supportless. Plural names silently fall back to defaults
+  // (all false → no holes). refined_hole is NOT compatible with magnet_hole.
+  const holeOpts = `bundle_hole_options(refined_hole=${!bin.magnetHoles && !bin.screwHoles}, magnet_hole=${bin.magnetHoles}, screw_hole=${bin.screwHoles}, crush_ribs=true, chamfer=true, supportless=true)`;
 
   const visibleObjects = objects.filter((o) => o.kind !== "stl" || !(o as PlacedStl).hidden);
   const embossText = visibleObjects.filter((o): o is PlacedText => o.kind === "text" && o.mode === "emboss");
