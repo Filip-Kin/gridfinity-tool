@@ -1,4 +1,4 @@
-import type { BinConfig, PlacedObject, PlacedStl, PlacedText } from "../shared/types.ts";
+import { BASE_HEIGHT_MM, type BinConfig, type PlacedObject, type PlacedStl, type PlacedText } from "../shared/types";
 
 const GRIDZ_DEFINE_MAP: Record<BinConfig["gridzMode"], number> = {
   increments: 0,
@@ -33,6 +33,34 @@ function renderStl(o: PlacedStl, stlPath: string): string {
     `scale([${num(unitScale)}, ${num(unitScale)}, ${num(unitScale)}])`,
     `import("${escapeScadString(stlPath)}", convexity = 10);`,
   ].join("\n  ");
+}
+
+// Debossed text on the cavity floor under an STL. Cuts into the base from
+// just-below the floor (z = BASE_HEIGHT - depth + overlap) upward through the
+// floor plane, so when the tool is removed you see engraved text on the floor.
+function renderStlLabel(o: PlacedStl): string {
+  const raw = o.label;
+  if (!raw) return "";
+  const lines = raw.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+  if (lines.length === 0) return "";
+  const size = o.labelSize ?? 4;
+  const depth = o.labelDepth ?? 0.6;
+  const lineHeight = size * 1.25;
+  const font = "Liberation Sans:style=Bold";
+  const [x, y] = o.position;
+  // Top of label geometry sits slightly above the floor so the boolean cut is clean.
+  const z = BASE_HEIGHT_MM - depth + 0.05;
+  const blocks = lines.map((line, i) => {
+    const yOffset = (lines.length - 1) / 2 - i;
+    const ly = y + yOffset * lineHeight;
+    return [
+      `// label for ${o.filename}: ${line.slice(0, 32)}`,
+      `translate([${num(x)}, ${num(ly)}, ${num(z)}])`,
+      `linear_extrude(height = ${num(depth + 0.1)}, center = false)`,
+      `text("${escapeScadString(line)}", size = ${num(size)}, font = "${escapeScadString(font)}", halign = "center", valign = "center", $fn = 32);`,
+    ].join("\n  ");
+  });
+  return blocks.join("\n  ");
 }
 
 function renderText(o: PlacedText): string {
@@ -73,9 +101,17 @@ export function buildScad({ bin, objects, stlPathFor, libraryPath }: ScadBuildAr
   const embossText = visibleObjects.filter((o): o is PlacedText => o.kind === "text" && o.mode === "emboss");
   const cavityObjects = visibleObjects.filter((o) => o.kind === "stl" || (o.kind === "text" && o.mode === "deboss"));
 
-  const cavityBody = cavityObjects
-    .map((o) => (o.kind === "stl" ? renderStl(o, stlPathFor(o.filename)) : renderText(o)))
-    .join("\n  ");
+  const cavityParts: string[] = [];
+  for (const o of cavityObjects) {
+    if (o.kind === "stl") {
+      cavityParts.push(renderStl(o, stlPathFor(o.filename)));
+      const labelBlock = renderStlLabel(o);
+      if (labelBlock) cavityParts.push(labelBlock);
+    } else {
+      cavityParts.push(renderText(o));
+    }
+  }
+  const cavityBody = cavityParts.join("\n  ");
 
   const embossBody = embossText.map((t) => renderText(t)).join("\n  ");
 

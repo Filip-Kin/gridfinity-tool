@@ -255,12 +255,35 @@ function ObjectsPanel() {
                   onChange={(v) => updateObject(o.id, { rotationZ: v })}
                 />
                 {o.kind === "stl" && (
-                  <NumField
-                    label="Oversize %"
-                    value={(o as PlacedStl).oversizePct}
-                    step={0.5}
-                    onChange={(v) => updateObject(o.id, { oversizePct: v })}
-                  />
+                  <>
+                    <NumField
+                      label="Oversize %"
+                      value={(o as PlacedStl).oversizePct}
+                      step={0.5}
+                      onChange={(v) => updateObject(o.id, { oversizePct: v })}
+                    />
+                    <div className="field" style={{ alignItems: "start" }}>
+                      <label>Label</label>
+                      <textarea
+                        value={(o as PlacedStl).label ?? ""}
+                        placeholder="Engraved on cavity floor (Enter for new line)"
+                        rows={2}
+                        onChange={(e) => updateObject(o.id, { label: e.target.value })}
+                        style={{
+                          background: "var(--panel-2)",
+                          border: "1px solid var(--border)",
+                          color: "var(--text)",
+                          padding: "4px 6px",
+                          borderRadius: 4,
+                          fontSize: 13,
+                          width: "100%",
+                          resize: "vertical",
+                          textAlign: "center",
+                          fontFamily: "inherit",
+                        }}
+                      />
+                    </div>
+                  </>
                 )}
                 {o.kind === "text" && (
                   <>

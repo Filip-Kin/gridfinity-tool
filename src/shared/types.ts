@@ -37,6 +37,11 @@ export interface PlacedStl {
   // 1000 = meters (Onshape's "Units: Meter" export), 25.4 = inches.
   // Applied as the innermost scale() in the SCAD import block.
   unitScale: number;
+  // Optional debossed label cut into the cavity floor under this STL.
+  // Multi-line: newlines split into stacked lines, all centered on the STL's XY.
+  label?: string;
+  labelSize?: number;  // mm, default 4
+  labelDepth?: number; // mm, default 0.6
   hidden?: boolean;
 }
 
