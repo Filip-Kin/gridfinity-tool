@@ -1,7 +1,10 @@
 export const GRID_UNIT_MM = 42;
 export const UNIT_HEIGHT_MM = 7;
 export const LIP_HEIGHT_MM = 3.55147;
-export const BASE_HEIGHT_MM = 4.75;
+// Z of the cavity floor. Matches BASE_HEIGHT in gridfinity-rebuilt-openscad's
+// standard.scad. Anything below this is gridfinity base structure (stepped
+// squares, magnet/screw holes); cavities + labels reference this as "floor".
+export const BASE_HEIGHT_MM = 7;
 
 export type Vec3 = [number, number, number];
 
@@ -37,11 +40,15 @@ export interface PlacedStl {
   // 1000 = meters (Onshape's "Units: Meter" export), 25.4 = inches.
   // Applied as the innermost scale() in the SCAD import block.
   unitScale: number;
-  // Optional debossed label cut into the cavity floor under this STL.
-  // Multi-line: newlines split into stacked lines, all centered on the STL's XY.
+  // Optional debossed label cut into the floor of this STL's cavity.
+  // Multi-line: newlines split into stacked lines, all centered on the STL's
+  // XY (plus optional offset). Z auto-tracks the STL's position so it always
+  // engraves just under the bottom of the cavity, not the container floor.
   label?: string;
-  labelSize?: number;  // mm, default 4
-  labelDepth?: number; // mm, default 0.6
+  labelSize?: number;    // mm, default 6
+  labelDepth?: number;   // mm, default 0.6
+  labelOffsetX?: number; // mm, default 0 — shift label left/right of STL center
+  labelOffsetY?: number; // mm, default 0 — shift label fore/aft of STL center
   hidden?: boolean;
 }
 

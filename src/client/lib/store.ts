@@ -388,9 +388,10 @@ export const useStore = create<AppState>((set, get) => ({
     const margin = 6;
     const gridx = Math.max(1, Math.ceil((footprintX + margin) / 42));
     const gridy = Math.max(1, Math.ceil((footprintY + margin) / 42));
-    // Target ~50% exposure: cavity depth = half the tallest object's height-above-floor.
+    // Target ~50% exposure plus a few mm buffer (gridfinity base + walls eat
+    // more cavity than the bare BASE_HEIGHT suggests).
     const objectSpan = Math.max(0, maxZ - BASE_HEIGHT_MM);
-    const gridz = Math.max(2, Math.round((objectSpan / 2 + BASE_HEIGHT_MM) / 7));
+    const gridz = Math.max(2, Math.ceil((objectSpan / 2 + BASE_HEIGHT_MM + 3) / 7));
     const binW = gridx * 42;
     const binD = gridy * 42;
     // Shift every object so the existing layout is centered in the new bin.
@@ -429,26 +430,30 @@ export const useStore = create<AppState>((set, get) => ({
     const N = items.length;
     const cols = Math.max(1, Math.ceil(Math.sqrt(N)));
     const rows = Math.ceil(N / cols);
-    const gap = 3;
-    const cellW = Math.max(1, ...items.map((i) => i.w)) + gap;
-    const cellD = Math.max(1, ...items.map((i) => i.d)) + gap;
+    // Use the largest dimension across all items as the uniform cell size.
+    const cellW = Math.max(1, ...items.map((i) => i.w));
+    const cellD = Math.max(1, ...items.map((i) => i.d));
     const maxH = Math.max(0, ...items.map((i) => i.h));
-    const margin = 6;
-    const gridx = Math.max(1, Math.ceil((cols * cellW - gap + margin) / 42));
-    const gridy = Math.max(1, Math.ceil((rows * cellD - gap + margin) / 42));
-    // Target ~50% exposure: cavity depth = half of tallest STL.
-    const gridz = Math.max(2, Math.round((maxH / 2 + BASE_HEIGHT_MM) / 7));
+    // Even spacing target: gap-between-items == gap-from-edge. Pick a minimum
+    // gap, size the bin to fit, then distribute the (rounded-up) excess space
+    // equally between every gap so it ends up balanced.
+    const targetGap = 8;
+    const needW = cols * cellW + (cols + 1) * targetGap;
+    const needD = rows * cellD + (rows + 1) * targetGap;
+    const gridx = Math.max(1, Math.ceil(needW / 42));
+    const gridy = Math.max(1, Math.ceil(needD / 42));
+    const gridz = Math.max(2, Math.ceil((maxH / 2 + BASE_HEIGHT_MM + 3) / 7));
     const binW = gridx * 42;
     const binD = gridy * 42;
-    const usedW = cols * cellW - gap;
-    const usedD = rows * cellD - gap;
-    const startX = (binW - usedW) / 2 + cellW / 2 - gap / 2;
-    const startY = (binD - usedD) / 2 + cellD / 2 - gap / 2;
+    const gapX = (binW - cols * cellW) / (cols + 1);
+    const gapY = (binD - rows * cellD) / (rows + 1);
     const newPos = new Map<string, Vec3>();
     items.forEach((item, i) => {
       const col = i % cols;
       const row = Math.floor(i / cols);
-      newPos.set(item.id, [startX + col * cellW, startY + row * cellD, BASE_HEIGHT_MM]);
+      const x = gapX + cellW / 2 + col * (cellW + gapX);
+      const y = gapY + cellD / 2 + row * (cellD + gapY);
+      newPos.set(item.id, [x, y, BASE_HEIGHT_MM]);
     });
     set((s) => ({
       bin: { ...s.bin, gridx, gridy, gridz, gridzMode: "increments" },

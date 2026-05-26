@@ -284,13 +284,40 @@ function ObjectsPanel() {
                       />
                     </div>
                     {(o as PlacedStl).label && (
-                      <NumField
-                        label="Label size (mm)"
-                        value={(o as PlacedStl).labelSize ?? 8}
-                        step={0.5}
-                        min={1}
-                        onChange={(v) => updateObject(o.id, { labelSize: v })}
-                      />
+                      <>
+                        <NumField
+                          label="Label size (mm)"
+                          value={(o as PlacedStl).labelSize ?? 6}
+                          step={0.5}
+                          min={1}
+                          onChange={(v) => updateObject(o.id, { labelSize: v })}
+                        />
+                        <div className="field">
+                          <label>Label offset XY</label>
+                          <div className="row3" style={{ gridTemplateColumns: "1fr 1fr" }}>
+                            <input
+                              type="number"
+                              step="1"
+                              placeholder="X"
+                              value={((o as PlacedStl).labelOffsetX ?? 0).toFixed(1)}
+                              onChange={(e) => {
+                                const v = parseFloat(e.target.value);
+                                if (Number.isFinite(v)) updateObject(o.id, { labelOffsetX: v });
+                              }}
+                            />
+                            <input
+                              type="number"
+                              step="1"
+                              placeholder="Y"
+                              value={((o as PlacedStl).labelOffsetY ?? 0).toFixed(1)}
+                              onChange={(e) => {
+                                const v = parseFloat(e.target.value);
+                                if (Number.isFinite(v)) updateObject(o.id, { labelOffsetY: v });
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </>
                     )}
                   </>
                 )}

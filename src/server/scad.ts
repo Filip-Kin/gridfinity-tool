@@ -1,4 +1,4 @@
-import { BASE_HEIGHT_MM, type BinConfig, type PlacedObject, type PlacedStl, type PlacedText } from "../shared/types";
+import { type BinConfig, type PlacedObject, type PlacedStl, type PlacedText } from "../shared/types";
 
 const GRIDZ_DEFINE_MAP: Record<BinConfig["gridzMode"], number> = {
   increments: 0,
@@ -35,21 +35,26 @@ function renderStl(o: PlacedStl, stlPath: string): string {
   ].join("\n  ");
 }
 
-// Debossed text on the cavity floor under an STL. Cuts into the base from
-// just-below the floor (z = BASE_HEIGHT - depth + overlap) upward through the
-// floor plane, so when the tool is removed you see engraved text on the floor.
+// Debossed text engraved under the bottom of an STL's cavity. Z auto-tracks
+// the STL's own Z position (o.position[2]) — so if the user moves the STL up,
+// the label still sits just under that cavity floor, not the container floor.
+// Cut goes from STL.z - depth up through STL.z + tiny overlap, so when the
+// tool is removed you see engraved text right where the tool was sitting.
 function renderStlLabel(o: PlacedStl): string {
   const raw = o.label;
   if (!raw) return "";
   const lines = raw.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
   if (lines.length === 0) return "";
-  const size = o.labelSize ?? 8;
+  const size = o.labelSize ?? 6;
   const depth = o.labelDepth ?? 0.6;
   const lineHeight = size * 1.25;
   const font = "Liberation Sans:style=Bold";
-  const [x, y] = o.position;
-  // Top of label geometry sits slightly above the floor so the boolean cut is clean.
-  const z = BASE_HEIGHT_MM - depth + 0.05;
+  const ox = o.labelOffsetX ?? 0;
+  const oy = o.labelOffsetY ?? 0;
+  const x = o.position[0] + ox;
+  const y = o.position[1] + oy;
+  // Top of label geometry sits slightly above STL's bottom so the boolean cut is clean.
+  const z = o.position[2] - depth + 0.05;
   const blocks = lines.map((line, i) => {
     const yOffset = (lines.length - 1) / 2 - i;
     const ly = y + yOffset * lineHeight;
