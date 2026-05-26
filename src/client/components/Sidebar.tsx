@@ -38,6 +38,8 @@ function NumField({
 function BinConfigPanel() {
   const bin = useStore((s) => s.bin);
   const setBin = useStore((s) => s.setBin);
+  const fitBin = useStore((s) => s.fitBinToObjects);
+  const hasObjects = useStore((s) => s.objects.length > 0);
   return (
     <div className="section">
       <h2>Bin</h2>
@@ -111,6 +113,9 @@ function BinConfigPanel() {
           onChange={(e) => setBin({ onlyCorners: e.target.checked })}
         />
       </div>
+      <button disabled={!hasObjects} onClick={fitBin} style={{ width: "100%", marginTop: 6 }}>
+        Fit bin to objects
+      </button>
       <div className="muted" style={{ marginTop: 6 }}>
         Outer: {(bin.gridx * 42).toFixed(0)} x {(bin.gridy * 42).toFixed(0)} mm
       </div>
@@ -126,14 +131,33 @@ function ObjectsPanel() {
   const removeObject = useStore((s) => s.removeObject);
   const uploads = useStore((s) => s.uploads);
   const addText = useStore((s) => s.addText);
+  const centerAll = useStore((s) => s.centerAllXY);
+  const centerSelected = useStore((s) => s.centerSelectedXY);
+  const dropSelected = useStore((s) => s.dropSelectedToFloor);
 
   return (
     <div className="section">
       <h2>Objects ({objects.length})</h2>
+      {objects.length > 0 && (
+        <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+          <button style={{ flex: 1 }} onClick={() => centerAll()}>
+            Center all XY
+          </button>
+          <button style={{ flex: 1 }} disabled={!selectedId} onClick={() => centerSelected()}>
+            Center selected
+          </button>
+          <button style={{ flex: 1 }} disabled={!selectedId} onClick={() => dropSelected()}>
+            Drop to floor
+          </button>
+        </div>
+      )}
       {objects.length === 0 && <div className="muted">Upload an STL or add a text label.</div>}
       {objects.map((o) => {
         const isSelected = o.id === selectedId;
-        const name = o.kind === "stl" ? uploads.get((o as PlacedStl).filename)?.originalName ?? o.filename : `"${(o as PlacedText).text}"`;
+        const name =
+          o.kind === "stl"
+            ? uploads.get((o as PlacedStl).filename)?.originalName ?? o.filename
+            : `"${(o as PlacedText).text}"`;
         return (
           <div
             key={o.id}
@@ -141,7 +165,14 @@ function ObjectsPanel() {
             onClick={() => selectObject(o.id)}
           >
             <div className="head">
-              <span style={{ width: 8, height: 8, borderRadius: 4, background: o.kind === "stl" ? "#ff8855" : "#9966ff" }} />
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  background: o.kind === "stl" ? "#ff8855" : "#9966ff",
+                }}
+              />
               <span className="name">{name}</span>
               <button
                 className="danger"
@@ -167,7 +198,11 @@ function ObjectsPanel() {
                         onChange={(e) => {
                           const v = parseFloat(e.target.value);
                           if (!Number.isFinite(v)) return;
-                          const p: [number, number, number] = [o.position[0], o.position[1], o.position[2]];
+                          const p: [number, number, number] = [
+                            o.position[0],
+                            o.position[1],
+                            o.position[2],
+                          ];
                           p[i] = v;
                           updateObject(o.id, { position: p });
                         }}
@@ -215,7 +250,9 @@ function ObjectsPanel() {
                       <label>Mode</label>
                       <select
                         value={(o as PlacedText).mode}
-                        onChange={(e) => updateObject(o.id, { mode: e.target.value as "deboss" | "emboss" })}
+                        onChange={(e) =>
+                          updateObject(o.id, { mode: e.target.value as "deboss" | "emboss" })
+                        }
                       >
                         <option value="deboss">Deboss (cut into)</option>
                         <option value="emboss">Emboss (raised on top)</option>
@@ -228,7 +265,9 @@ function ObjectsPanel() {
           </div>
         );
       })}
-      <button onClick={() => addText()} style={{ marginTop: 6 }}>+ Add text</button>
+      <button onClick={() => addText()} style={{ marginTop: 6 }}>
+        + Add text
+      </button>
     </div>
   );
 }
@@ -275,9 +314,13 @@ function UploadPanel() {
 export function Sidebar() {
   const status = useStore((s) => s.status);
   const renderBin = useStore((s) => s.renderBin);
+  const downloadStl = useStore((s) => s.downloadStl);
   const gizmoMode = useStore((s) => s.gizmoMode);
   const setGizmoMode = useStore((s) => s.setGizmoMode);
   const objects = useStore((s) => s.objects);
+  const hasRender = useStore((s) => s.lastStlBlobUrl !== null);
+  const stale = useStore((s) => s.stale);
+  const lastRenderMs = useStore((s) => s.lastRenderMs);
   const canRender = objects.length > 0 && status !== "rendering" && status !== "uploading";
 
   return (
@@ -291,24 +334,54 @@ export function Sidebar() {
         <UploadPanel />
         <ObjectsPanel />
       </div>
-      <div style={{ padding: 12, borderTop: "1px solid var(--border)", display: "flex", gap: 6, flexDirection: "column" }}>
+      <div
+        style={{
+          padding: 12,
+          borderTop: "1px solid var(--border)",
+          display: "flex",
+          gap: 6,
+          flexDirection: "column",
+        }}
+      >
         <div style={{ display: "flex", gap: 4 }}>
           <button
-            style={{ flex: 1, background: gizmoMode === "translate" ? "var(--accent)" : undefined, color: gizmoMode === "translate" ? "#08111f" : undefined }}
+            style={{
+              flex: 1,
+              background: gizmoMode === "translate" ? "var(--accent)" : undefined,
+              color: gizmoMode === "translate" ? "#08111f" : undefined,
+            }}
             onClick={() => setGizmoMode("translate")}
           >
             Move
           </button>
           <button
-            style={{ flex: 1, background: gizmoMode === "rotate" ? "var(--accent)" : undefined, color: gizmoMode === "rotate" ? "#08111f" : undefined }}
+            style={{
+              flex: 1,
+              background: gizmoMode === "rotate" ? "var(--accent)" : undefined,
+              color: gizmoMode === "rotate" ? "#08111f" : undefined,
+            }}
             onClick={() => setGizmoMode("rotate")}
           >
             Rotate
           </button>
         </div>
-        <button className="primary" disabled={!canRender} onClick={() => renderBin()}>
-          {status === "rendering" ? "Rendering..." : "Render & Download STL"}
-        </button>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button className="primary" style={{ flex: 1 }} disabled={!canRender} onClick={() => renderBin()}>
+            {status === "rendering" ? "Rendering..." : hasRender && !stale ? "Re-render" : "Render bin"}
+          </button>
+          <button style={{ flex: 1 }} disabled={!hasRender} onClick={() => downloadStl()}>
+            Download STL
+          </button>
+        </div>
+        {hasRender && (
+          <div className="muted" style={{ textAlign: "center" }}>
+            {stale ? (
+              <span style={{ color: "var(--danger)" }}>Render is stale (edits made)</span>
+            ) : (
+              <>Render OK{lastRenderMs ? ` (${(lastRenderMs / 1000).toFixed(1)}s)` : ""}</>
+            )}
+          </div>
+        )}
       </div>
     </aside>
   );

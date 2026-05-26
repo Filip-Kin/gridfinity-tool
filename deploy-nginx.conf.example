@@ -13,6 +13,11 @@ server {
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
+    # Authelia forward-auth (snippet name is historical, points at Authelia).
+    # tinyauth.conf installs both the /authelia internal endpoint and the
+    # auth_request check at server-level so every location is gated.
+    include /etc/nginx/snippets/tinyauth.conf;
+
     # STL uploads can be large; default nginx limit is 1MB.
     client_max_body_size 110M;
 

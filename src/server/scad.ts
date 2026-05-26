@@ -19,12 +19,14 @@ function escapeScadString(s: string): string {
 
 function renderStl(o: PlacedStl, stlPath: string): string {
   const [x, y, z] = o.position;
+  const [ax, ay, az] = o.anchorOffset ?? [0, 0, 0];
   const scale = 1 + o.oversizePct / 100;
   return [
     `// stl: ${o.filename}`,
     `translate([${num(x)}, ${num(y)}, ${num(z)}])`,
     `rotate([0, 0, ${num(o.rotationZ)}])`,
     `scale([${num(scale)}, ${num(scale)}, ${num(scale)}])`,
+    `translate([${num(ax)}, ${num(ay)}, ${num(az)}])`,
     `import("${escapeScadString(stlPath)}", convexity = 10);`,
   ].join("\n  ");
 }

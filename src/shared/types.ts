@@ -29,6 +29,10 @@ export interface PlacedStl {
   position: Vec3;
   rotationZ: number;
   oversizePct: number;
+  // Applied as innermost translate inside the SCAD import block so the STL's
+  // "anchor" (XY center, Z bottom of the original mesh) lands at `position`.
+  // Computed at upload time from the parsed mesh bounding box.
+  anchorOffset: Vec3;
   hidden?: boolean;
 }
 
