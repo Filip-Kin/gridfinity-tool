@@ -388,7 +388,9 @@ export const useStore = create<AppState>((set, get) => ({
     const margin = 6;
     const gridx = Math.max(1, Math.ceil((footprintX + margin) / 42));
     const gridy = Math.max(1, Math.ceil((footprintY + margin) / 42));
-    const gridz = Math.max(2, Math.ceil((maxZ - BASE_HEIGHT_MM + 3) / 7));
+    // Target ~50% exposure: cavity depth = half the tallest object's height-above-floor.
+    const objectSpan = Math.max(0, maxZ - BASE_HEIGHT_MM);
+    const gridz = Math.max(2, Math.round((objectSpan / 2 + BASE_HEIGHT_MM) / 7));
     const binW = gridx * 42;
     const binD = gridy * 42;
     // Shift every object so the existing layout is centered in the new bin.
@@ -434,7 +436,8 @@ export const useStore = create<AppState>((set, get) => ({
     const margin = 6;
     const gridx = Math.max(1, Math.ceil((cols * cellW - gap + margin) / 42));
     const gridy = Math.max(1, Math.ceil((rows * cellD - gap + margin) / 42));
-    const gridz = Math.max(2, Math.ceil((maxH + 3) / 7));
+    // Target ~50% exposure: cavity depth = half of tallest STL.
+    const gridz = Math.max(2, Math.round((maxH / 2 + BASE_HEIGHT_MM) / 7));
     const binW = gridx * 42;
     const binD = gridy * 42;
     const usedW = cols * cellW - gap;

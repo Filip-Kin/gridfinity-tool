@@ -72,7 +72,7 @@ export interface UploadResponse {
 export const DEFAULT_BIN: BinConfig = {
   gridx: 2,
   gridy: 2,
-  gridz: 3,
+  gridz: 4,
   gridzMode: "increments",
   includeLip: true,
   divx: 0,
