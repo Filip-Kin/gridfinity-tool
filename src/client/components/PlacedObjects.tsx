@@ -41,36 +41,64 @@ function TextBody({ obj }: TextBodyProps) {
   );
 }
 
-// Label preview. Rendered INSIDE the Draggable's rotated group so it follows
-// the STL's pose. Each line is a thin colored backplate (always visible 3D
-// mesh, even if the HTML layer below fails) plus a drei <Html transform> so
-// the actual text content shows up using the browser's fonts (no external
-// font CDN required, unlike drei's <Text>).
+// Mirror of scad.ts rotatedBboxMinLocalZ — returns the min Z of the STL's
+// scaled bounding box after applying X/Y rotation, in local (pre-translation)
+// coords.
+function rotatedBboxMinLocalZ(obj: PlacedStl, bbox: THREE.Box3): number {
+  const size = bbox.max.clone().sub(bbox.min);
+  const s = 1 + obj.oversizePct / 100;
+  const sw = (size.x * s) / 2;
+  const sd = (size.y * s) / 2;
+  const sh = size.z * s;
+  const corners: Array<[number, number, number]> = [
+    [-sw, -sd, 0], [sw, -sd, 0], [-sw, sd, 0], [sw, sd, 0],
+    [-sw, -sd, sh], [sw, -sd, sh], [-sw, sd, sh], [sw, sd, sh],
+  ];
+  const rx = ((obj.rotationX ?? 0) * Math.PI) / 180;
+  const ry = ((obj.rotationY ?? 0) * Math.PI) / 180;
+  let minZ = Infinity;
+  for (const [cx, cy, cz] of corners) {
+    const y1 = cy * Math.cos(rx) - cz * Math.sin(rx);
+    const z1 = cy * Math.sin(rx) + cz * Math.cos(rx);
+    const z2 = -cx * Math.sin(ry) + z1 * Math.cos(ry);
+    if (z2 < minZ) minZ = z2;
+  }
+  return minZ;
+}
+
+// Label preview. Lives OUTSIDE the Draggable's rotated group: the label
+// inherits only the tool's Z rotation (yaw) but ignores X/Y tip, so tipping
+// a tool on its side still shows the label on the world cavity floor.
 function StlLabelPreview({ obj }: { obj: PlacedStl }) {
+  const upload = useStore((s) => s.uploads.get(obj.filename));
   const raw = obj.label;
-  if (!raw) return null;
+  if (!raw || !upload) return null;
   const lines = raw
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l.length > 0);
   if (lines.length === 0) return null;
   const size = obj.labelSize ?? 6;
+  const depth = obj.labelDepth ?? 0.6;
   const lineHeight = size * 1.25;
   const ox = obj.labelOffsetX ?? 0;
   const oy = obj.labelOffsetY ?? 0;
   const longest = Math.max(1, ...lines.map((l) => l.length));
   const plateW = longest * size * 0.65;
   const plateD = size * 1.1;
+  const worldBottomZ = obj.position[2] + rotatedBboxMinLocalZ(obj, upload.bbox);
+  const labelZ = worldBottomZ - depth + 0.05;
+  const groupPos: [number, number, number] = [obj.position[0] + ox, obj.position[1] + oy, labelZ];
+  const groupRot: [number, number, number] = [0, 0, (obj.rotationZ * Math.PI) / 180];
   return (
-    <group renderOrder={10}>
+    <group position={groupPos} rotation={groupRot} renderOrder={10}>
       {lines.map((line, i) => {
         const yOffset = (lines.length - 1) / 2 - i;
-        const ly = oy + yOffset * lineHeight;
         return (
-          <group key={`${i}-${line}`} position={[ox, ly, -0.1]}>
+          <group key={`${i}-${line}`} position={[0, yOffset * lineHeight, 0]}>
             <mesh renderOrder={1000}>
               <boxGeometry args={[plateW, plateD, 0.05]} />
-              <meshBasicMaterial color="#7d4cd9" transparent opacity={0.45} depthTest={false} />
+              <meshBasicMaterial color="#7d4cd9" transparent opacity={0.55} depthTest={false} />
             </mesh>
             <Html
               transform
@@ -150,8 +178,8 @@ function Draggable({ obj }: DraggableProps) {
         }}
       >
         {obj.kind === "stl" ? <StlBody obj={obj} /> : <TextBody obj={obj} />}
-        {obj.kind === "stl" && <StlLabelPreview obj={obj} />}
       </group>
+      {obj.kind === "stl" && <StlLabelPreview obj={obj} />}
       {selected && ready && groupRef.current && (
         <TransformControls
           object={groupRef.current}

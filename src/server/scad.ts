@@ -39,11 +39,42 @@ function renderStl(o: PlacedStl, stlPath: string): string {
   ].join("\n  ");
 }
 
-// Debossed text engraved at the bottom of an STL's cavity. Placed in the STL's
-// LOCAL rotated frame so it follows the tool's pose: tip a tool on its side
-// and the label tips with it (still appears on the cavity floor from the
-// tool's perspective). Label local position: (labelOffsetX, labelOffsetY,
-// -depth + small overlap) — i.e. just under the STL's anchor in local Z.
+// Compute the world Z of the lowest point of the STL's bounding box after
+// applying oversize + X/Y rotation. Used to anchor the label to the actual
+// cavity floor (in world coords), so tipping a tool on its side still puts
+// the engraving on the bin floor instead of on the new "side" of the cavity.
+function rotatedBboxMinLocalZ(o: PlacedStl): number {
+  if (!o.bboxSize) return 0;
+  const [w, d, h] = o.bboxSize;
+  const s = 1 + o.oversizePct / 100;
+  const sw = (w * s) / 2;
+  const sd = (d * s) / 2;
+  const sh = h * s;
+  // Normalized local bbox after anchor centering + oversize: extents centered
+  // in XY, going from z=0 up to z=sh.
+  const corners: Array<[number, number, number]> = [
+    [-sw, -sd, 0], [sw, -sd, 0], [-sw, sd, 0], [sw, sd, 0],
+    [-sw, -sd, sh], [sw, -sd, sh], [-sw, sd, sh], [sw, sd, sh],
+  ];
+  const rx = ((o.rotationX ?? 0) * Math.PI) / 180;
+  const ry = ((o.rotationY ?? 0) * Math.PI) / 180;
+  // Z rotation doesn't change Z values, so we skip it.
+  let minZ = Infinity;
+  for (const [cx, cy, cz] of corners) {
+    // X rotation (around X axis): y/z change
+    const y1 = cy * Math.cos(rx) - cz * Math.sin(rx);
+    const z1 = cy * Math.sin(rx) + cz * Math.cos(rx);
+    // Y rotation (around Y axis): x/z change
+    const z2 = -cx * Math.sin(ry) + z1 * Math.cos(ry);
+    if (z2 < minZ) minZ = z2;
+  }
+  return minZ;
+}
+
+// Debossed text engraved on the cavity floor in world coords. Follows the
+// tool's Z rotation (yaw) so multi-line labels stay aligned with the row,
+// but ignores X/Y rotation so the label always sits on the world floor (not
+// on whatever side the tool ended up pointing after a tip).
 function renderStlLabel(o: PlacedStl): string {
   const raw = o.label;
   if (!raw) return "";
@@ -56,18 +87,17 @@ function renderStlLabel(o: PlacedStl): string {
   const ox = o.labelOffsetX ?? 0;
   const oy = o.labelOffsetY ?? 0;
   const [px, py, pz] = o.position;
-  const rx = o.rotationX ?? 0;
-  const ry = o.rotationY ?? 0;
   const rz = o.rotationZ;
-  const localZ = -depth + 0.05;
+  // World Z of the tool's bottom after rotation.
+  const worldBottomZ = pz + rotatedBboxMinLocalZ(o);
+  const labelZ = worldBottomZ - depth + 0.05;
   const blocks = lines.map((line, i) => {
     const yOffset = (lines.length - 1) / 2 - i;
-    const ly = oy + yOffset * lineHeight;
     return [
       `// label for ${o.filename}: ${line.slice(0, 32)}`,
-      `translate([${num(px)}, ${num(py)}, ${num(pz)}])`,
-      `rotate([${num(rx)}, ${num(ry)}, ${num(rz)}])`,
-      `translate([${num(ox)}, ${num(ly)}, ${num(localZ)}])`,
+      `translate([${num(px + ox)}, ${num(py + oy)}, ${num(labelZ)}])`,
+      `rotate([0, 0, ${num(rz)}])`,
+      `translate([0, ${num(yOffset * lineHeight)}, 0])`,
       `linear_extrude(height = ${num(depth + 0.1)}, center = false)`,
       `text("${escapeScadString(line)}", size = ${num(size)}, font = "${escapeScadString(font)}", halign = "center", valign = "center", $fn = 32);`,
     ].join("\n  ");

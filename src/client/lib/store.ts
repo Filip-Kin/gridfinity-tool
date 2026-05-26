@@ -244,8 +244,8 @@ export const useStore = create<AppState>((set, get) => ({
       const size = bbSize(upload.bbox);
       cx += indexInBatch * (size.x + 4);
     }
-    const h = bbSize(upload.bbox).z;
-    const cz = placementZForHeight(bin.gridz, h);
+    const sz = bbSize(upload.bbox);
+    const cz = placementZForHeight(bin.gridz, sz.z);
     const obj: PlacedStl = {
       id: uid(),
       kind: "stl",
@@ -255,6 +255,7 @@ export const useStore = create<AppState>((set, get) => ({
       oversizePct: 2,
       anchorOffset: upload.anchorOffset,
       unitScale: upload.unitScale,
+      bboxSize: [sz.x, sz.y, sz.z],
     };
     set((s) => ({
       objects: [...s.objects, obj],

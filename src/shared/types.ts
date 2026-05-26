@@ -42,6 +42,11 @@ export interface PlacedStl {
   // 1000 = meters (Onshape's "Units: Meter" export), 25.4 = inches.
   // Applied as the innermost scale() in the SCAD import block.
   unitScale: number;
+  // Bounding box dimensions [w, d, h] in mm (post unit-scale + anchor centering).
+  // Used to compute where the rotated tool's bottom lands in world coords for
+  // label placement. Sent with the placement so the server doesn't need to
+  // re-parse the STL.
+  bboxSize?: Vec3;
   // Optional debossed label cut into the floor of this STL's cavity.
   // Multi-line: newlines split into stacked lines, all centered on the STL's
   // XY (plus optional offset). Z auto-tracks the STL's position so it always
