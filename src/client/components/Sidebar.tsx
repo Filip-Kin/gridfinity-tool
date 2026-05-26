@@ -355,6 +355,8 @@ export function Sidebar() {
   const downloadStl = useStore((s) => s.downloadStl);
   const gizmoMode = useStore((s) => s.gizmoMode);
   const setGizmoMode = useStore((s) => s.setGizmoMode);
+  const viewMode = useStore((s) => s.viewMode);
+  const setViewMode = useStore((s) => s.setViewMode);
   const objects = useStore((s) => s.objects);
   const hasRender = useStore((s) => s.lastStlBlobUrl !== null);
   const stale = useStore((s) => s.stale);
@@ -381,6 +383,30 @@ export function Sidebar() {
           flexDirection: "column",
         }}
       >
+        {hasRender && (
+          <div style={{ display: "flex", gap: 4 }}>
+            <button
+              style={{
+                flex: 1,
+                background: viewMode === "edit" ? "var(--accent)" : undefined,
+                color: viewMode === "edit" ? "#08111f" : undefined,
+              }}
+              onClick={() => setViewMode("edit")}
+            >
+              Editor
+            </button>
+            <button
+              style={{
+                flex: 1,
+                background: viewMode === "render" ? "var(--accent)" : undefined,
+                color: viewMode === "render" ? "#08111f" : undefined,
+              }}
+              onClick={() => setViewMode("render")}
+            >
+              Rendered
+            </button>
+          </div>
+        )}
         <div style={{ display: "flex", gap: 4 }}>
           <button
             style={{

@@ -4,9 +4,11 @@ import { Suspense } from "react";
 import { useStore } from "../lib/store";
 import { BinPreview } from "./BinPreview";
 import { PlacedObjects } from "./PlacedObjects";
+import { RenderedBin } from "./RenderedBin";
 
 export function Scene() {
   const bin = useStore((s) => s.bin);
+  const viewMode = useStore((s) => s.viewMode);
   const selectObject = useStore((s) => s.selectObject);
   const cameraDist = Math.max(bin.gridx, bin.gridy) * 42 * 1.8 + 80;
   return (
@@ -33,8 +35,14 @@ export function Scene() {
         infiniteGrid
       />
       <Suspense fallback={null}>
-        <BinPreview bin={bin} />
-        <PlacedObjects />
+        {viewMode === "edit" ? (
+          <>
+            <BinPreview bin={bin} />
+            <PlacedObjects />
+          </>
+        ) : (
+          <RenderedBin />
+        )}
       </Suspense>
       <OrbitControls
         target={[bin.gridx * 21, bin.gridy * 21, bin.gridz * 3.5]}

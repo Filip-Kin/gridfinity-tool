@@ -27,6 +27,7 @@ export interface UploadCache {
 
 type Status = "idle" | "uploading" | "rendering" | "error";
 export type GizmoMode = "translate" | "rotate";
+export type ViewMode = "edit" | "render";
 
 interface ParsedStl {
   geometry: THREE.BufferGeometry;
@@ -43,14 +44,17 @@ interface AppState {
   uploads: Map<string, UploadCache>;
   selectedId: string | null;
   gizmoMode: GizmoMode;
+  viewMode: ViewMode;
   status: Status;
   lastError: string | null;
   lastStlBlobUrl: string | null;
   lastRenderMs: number | null;
+  renderGeometry: THREE.BufferGeometry | null;
   stale: boolean;
 
   setBin: (patch: Partial<BinConfig>) => void;
   setGizmoMode: (mode: GizmoMode) => void;
+  setViewMode: (mode: ViewMode) => void;
   ensureSession: () => Promise<string>;
   uploadFiles: (files: FileList | File[]) => Promise<void>;
   addStlPlacement: (filename: string, indexInBatch?: number) => void;
@@ -126,9 +130,16 @@ function bbSize(b: THREE.Box3): THREE.Vector3 {
 }
 
 // Marks any cached render as stale. Call after any state change that affects the SCAD output.
-function invalidateRender(prev: string | null): { lastStlBlobUrl: null; lastRenderMs: null; stale: true } {
+// Also flips back to edit view so the user sees their (now-different) inputs, not a stale render.
+function invalidateRender(prev: string | null): {
+  lastStlBlobUrl: null;
+  lastRenderMs: null;
+  renderGeometry: null;
+  stale: true;
+  viewMode: "edit";
+} {
   if (prev) URL.revokeObjectURL(prev);
-  return { lastStlBlobUrl: null, lastRenderMs: null, stale: true };
+  return { lastStlBlobUrl: null, lastRenderMs: null, renderGeometry: null, stale: true, viewMode: "edit" };
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -138,16 +149,19 @@ export const useStore = create<AppState>((set, get) => ({
   uploads: new Map(),
   selectedId: null,
   gizmoMode: "translate",
+  viewMode: "edit",
   status: "idle",
   lastError: null,
   lastStlBlobUrl: null,
   lastRenderMs: null,
+  renderGeometry: null,
   stale: true,
 
   setBin: (patch) =>
     set((s) => ({ bin: { ...s.bin, ...patch }, ...invalidateRender(s.lastStlBlobUrl) })),
 
   setGizmoMode: (mode) => set({ gizmoMode: mode }),
+  setViewMode: (mode) => set({ viewMode: mode }),
 
   ensureSession: async () => {
     const existing = get().sessionId;
@@ -463,10 +477,21 @@ export const useStore = create<AppState>((set, get) => ({
       }
       const ms = parseInt(res.headers.get("X-Render-Duration-Ms") ?? "0", 10) || null;
       const blob = await res.blob();
+      const buf = await blob.arrayBuffer();
+      const geom = loader.parse(buf);
+      geom.computeBoundingBox();
+      geom.computeVertexNormals();
       const url = URL.createObjectURL(blob);
       const prev = get().lastStlBlobUrl;
       if (prev) URL.revokeObjectURL(prev);
-      set({ status: "idle", lastStlBlobUrl: url, lastRenderMs: ms, stale: false });
+      set({
+        status: "idle",
+        lastStlBlobUrl: url,
+        lastRenderMs: ms,
+        renderGeometry: geom,
+        stale: false,
+        viewMode: "render",
+      });
     } catch (err) {
       set({ status: "error", lastError: err instanceof Error ? err.message : String(err) });
     }
