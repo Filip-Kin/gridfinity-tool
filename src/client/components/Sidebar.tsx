@@ -137,7 +137,10 @@ function ObjectsPanel() {
   const removeObject = useStore((s) => s.removeObject);
   const uploads = useStore((s) => s.uploads);
   const addText = useStore((s) => s.addText);
-  const centerAll = useStore((s) => s.centerAllXY);
+  const autoArrange = useStore((s) => s.autoArrange);
+  const centerGroup = useStore((s) => s.centerGroup);
+  const alignAllX = useStore((s) => s.alignAllX);
+  const alignAllY = useStore((s) => s.alignAllY);
   const centerSelected = useStore((s) => s.centerSelectedXY);
   const dropSelected = useStore((s) => s.dropSelectedToFloor);
 
@@ -145,17 +148,35 @@ function ObjectsPanel() {
     <div className="section">
       <h2>Objects ({objects.length})</h2>
       {objects.length > 0 && (
-        <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
-          <button style={{ flex: 1 }} onClick={() => centerAll()}>
-            Center all XY
+        <>
+          <button
+            className="primary"
+            onClick={() => autoArrange()}
+            style={{ width: "100%", marginBottom: 6 }}
+            title="Lay out STLs in a grid and size the bin to fit"
+          >
+            Auto arrange
           </button>
-          <button style={{ flex: 1 }} disabled={!selectedId} onClick={() => centerSelected()}>
-            Center selected
-          </button>
-          <button style={{ flex: 1 }} disabled={!selectedId} onClick={() => dropSelected()}>
-            Drop to floor
-          </button>
-        </div>
+          <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+            <button style={{ flex: 1 }} onClick={() => centerGroup()} title="Shift all objects so the cluster's center matches the bin center (preserves relative positions)">
+              Center group
+            </button>
+            <button style={{ flex: 1 }} onClick={() => alignAllX()} title="Snap every object's X to the bin's X center (keeps Y)">
+              Align X
+            </button>
+            <button style={{ flex: 1 }} onClick={() => alignAllY()} title="Snap every object's Y to the bin's Y center (keeps X)">
+              Align Y
+            </button>
+          </div>
+          <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+            <button style={{ flex: 1 }} disabled={!selectedId} onClick={() => centerSelected()}>
+              Center selected
+            </button>
+            <button style={{ flex: 1 }} disabled={!selectedId} onClick={() => dropSelected()}>
+              Drop to floor
+            </button>
+          </div>
+        </>
       )}
       {objects.length === 0 && <div className="muted">Upload an STL or add a text label.</div>}
       {objects.map((o) => {

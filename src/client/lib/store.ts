@@ -59,7 +59,9 @@ interface AppState {
   removeObject: (id: string) => void;
   selectObject: (id: string | null) => void;
   centerSelectedXY: () => void;
-  centerAllXY: () => void;
+  centerGroup: () => void;
+  alignAllX: () => void;
+  alignAllY: () => void;
   dropSelectedToFloor: () => void;
   fitBinToObjects: () => void;
   autoArrange: () => void;
@@ -279,12 +281,42 @@ export const useStore = create<AppState>((set, get) => ({
     }));
   },
 
-  centerAllXY: () => {
-    const bin = get().bin;
-    const cx = (bin.gridx * 42) / 2;
-    const cy = (bin.gridy * 42) / 2;
+  centerGroup: () => {
+    const { objects, bin } = get();
+    if (objects.length === 0) return;
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (const o of objects) {
+      if (o.position[0] < minX) minX = o.position[0];
+      if (o.position[0] > maxX) maxX = o.position[0];
+      if (o.position[1] < minY) minY = o.position[1];
+      if (o.position[1] > maxY) maxY = o.position[1];
+    }
+    const dx = (bin.gridx * 42) / 2 - (minX + maxX) / 2;
+    const dy = (bin.gridy * 42) / 2 - (minY + maxY) / 2;
     set((s) => ({
-      objects: s.objects.map((o) => ({ ...o, position: [cx, cy, o.position[2]] as Vec3 })),
+      objects: s.objects.map((o) => ({
+        ...o,
+        position: [o.position[0] + dx, o.position[1] + dy, o.position[2]] as Vec3,
+      })),
+      ...invalidateRender(s.lastStlBlobUrl),
+    }));
+  },
+
+  alignAllX: () => {
+    const cx = (get().bin.gridx * 42) / 2;
+    set((s) => ({
+      objects: s.objects.map((o) => ({ ...o, position: [cx, o.position[1], o.position[2]] as Vec3 })),
+      ...invalidateRender(s.lastStlBlobUrl),
+    }));
+  },
+
+  alignAllY: () => {
+    const cy = (get().bin.gridy * 42) / 2;
+    set((s) => ({
+      objects: s.objects.map((o) => ({ ...o, position: [o.position[0], cy, o.position[2]] as Vec3 })),
       ...invalidateRender(s.lastStlBlobUrl),
     }));
   },
