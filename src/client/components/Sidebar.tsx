@@ -283,6 +283,15 @@ function ObjectsPanel() {
                         }}
                       />
                     </div>
+                    {(o as PlacedStl).label && (
+                      <NumField
+                        label="Label size (mm)"
+                        value={(o as PlacedStl).labelSize ?? 8}
+                        step={0.5}
+                        min={1}
+                        onChange={(v) => updateObject(o.id, { labelSize: v })}
+                      />
+                    )}
                   </>
                 )}
                 {o.kind === "text" && (

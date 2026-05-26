@@ -43,7 +43,7 @@ function renderStlLabel(o: PlacedStl): string {
   if (!raw) return "";
   const lines = raw.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
   if (lines.length === 0) return "";
-  const size = o.labelSize ?? 4;
+  const size = o.labelSize ?? 8;
   const depth = o.labelDepth ?? 0.6;
   const lineHeight = size * 1.25;
   const font = "Liberation Sans:style=Bold";
