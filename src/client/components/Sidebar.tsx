@@ -39,6 +39,7 @@ function BinConfigPanel() {
   const bin = useStore((s) => s.bin);
   const setBin = useStore((s) => s.setBin);
   const fitBin = useStore((s) => s.fitBinToObjects);
+  const autoArrange = useStore((s) => s.autoArrange);
   const hasObjects = useStore((s) => s.objects.length > 0);
   return (
     <div className="section">
@@ -113,9 +114,14 @@ function BinConfigPanel() {
           onChange={(e) => setBin({ onlyCorners: e.target.checked })}
         />
       </div>
-      <button disabled={!hasObjects} onClick={fitBin} style={{ width: "100%", marginTop: 6 }}>
-        Fit bin to objects
-      </button>
+      <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
+        <button disabled={!hasObjects} onClick={autoArrange} style={{ flex: 1 }}>
+          Auto arrange
+        </button>
+        <button disabled={!hasObjects} onClick={fitBin} style={{ flex: 1 }}>
+          Fit bin
+        </button>
+      </div>
       <div className="muted" style={{ marginTop: 6 }}>
         Outer: {(bin.gridx * 42).toFixed(0)} x {(bin.gridy * 42).toFixed(0)} mm
       </div>

@@ -62,6 +62,7 @@ interface AppState {
   centerAllXY: () => void;
   dropSelectedToFloor: () => void;
   fitBinToObjects: () => void;
+  autoArrange: () => void;
   renderBin: () => Promise<void>;
   downloadStl: () => void;
   clearError: () => void;
@@ -189,13 +190,14 @@ export const useStore = create<AppState>((set, get) => ({
         });
       }
 
-      // Only auto-fit the bin and lay out fresh if this is the first content.
+      // Only auto-arrange + fit on first content. Subsequent uploads
+      // append at the bin center (the user can hit "Auto arrange" to reflow).
       const firstUpload = get().objects.length === 0;
       set({ uploads, status: "idle" });
       data.files.forEach((entry, i) => {
         get().addStlPlacement(entry.filename, firstUpload ? i : undefined);
       });
-      if (firstUpload) get().fitBinToObjects();
+      if (firstUpload) get().autoArrange();
     } catch (err) {
       set({ status: "error", lastError: err instanceof Error ? err.message : String(err) });
     }
@@ -303,9 +305,9 @@ export const useStore = create<AppState>((set, get) => ({
   fitBinToObjects: () => {
     const { objects, uploads, bin } = get();
     if (objects.length === 0) return;
-    let maxX = 0,
-      maxY = 0,
-      maxZ = 0;
+    let maxX = -Infinity,
+      maxY = -Infinity,
+      maxZ = BASE_HEIGHT_MM;
     let minX = Infinity,
       minY = Infinity;
     for (const o of objects) {
@@ -333,18 +335,80 @@ export const useStore = create<AppState>((set, get) => ({
       maxY = Math.max(maxY, o.position[1] + halfD);
       maxZ = Math.max(maxZ, o.position[2] + (o.kind === "stl" ? h : 0));
     }
-    const footprintX = Math.max(0, maxX - Math.max(0, minX));
-    const footprintY = Math.max(0, maxY - Math.max(0, minY));
-    // Wall margin: gridfinity inner wall takes ~3.5mm per side, plus a couple mm of clearance.
+    if (!Number.isFinite(minX)) return;
+    const footprintX = maxX - minX;
+    const footprintY = maxY - minY;
+    // Gridfinity inner wall is ~3.5mm/side; add a couple mm of clearance.
     const margin = 6;
     const gridx = Math.max(1, Math.ceil((footprintX + margin) / 42));
     const gridy = Math.max(1, Math.ceil((footprintY + margin) / 42));
     const gridz = Math.max(2, Math.ceil((maxZ - BASE_HEIGHT_MM + 3) / 7));
+    const binW = gridx * 42;
+    const binD = gridy * 42;
+    // Shift every object so the existing layout is centered in the new bin.
+    // Preserves relative positions (so multi-STL layouts don't collapse).
+    const shiftX = (binW - footprintX) / 2 - minX;
+    const shiftY = (binD - footprintY) / 2 - minY;
     set((s) => ({
       bin: { ...bin, gridx, gridy, gridz, gridzMode: "increments" },
+      objects: s.objects.map((o) => ({
+        ...o,
+        position: [o.position[0] + shiftX, o.position[1] + shiftY, o.position[2]] as Vec3,
+      })),
       ...invalidateRender(s.lastStlBlobUrl),
     }));
-    get().centerAllXY();
+  },
+
+  autoArrange: () => {
+    const { objects, uploads } = get();
+    const stls = objects.filter((o): o is PlacedStl => o.kind === "stl");
+    if (stls.length === 0) {
+      if (objects.length > 0) get().fitBinToObjects();
+      return;
+    }
+    interface Item {
+      id: string;
+      w: number;
+      d: number;
+      h: number;
+    }
+    const items: Item[] = stls.map((o) => {
+      const up = uploads.get(o.filename);
+      const scale = 1 + o.oversizePct / 100;
+      const s = up ? bbSize(up.bbox) : new THREE.Vector3();
+      return { id: o.id, w: s.x * scale, d: s.y * scale, h: s.z * scale };
+    });
+    const N = items.length;
+    const cols = Math.max(1, Math.ceil(Math.sqrt(N)));
+    const rows = Math.ceil(N / cols);
+    const gap = 3;
+    const cellW = Math.max(1, ...items.map((i) => i.w)) + gap;
+    const cellD = Math.max(1, ...items.map((i) => i.d)) + gap;
+    const maxH = Math.max(0, ...items.map((i) => i.h));
+    const margin = 6;
+    const gridx = Math.max(1, Math.ceil((cols * cellW - gap + margin) / 42));
+    const gridy = Math.max(1, Math.ceil((rows * cellD - gap + margin) / 42));
+    const gridz = Math.max(2, Math.ceil((maxH + 3) / 7));
+    const binW = gridx * 42;
+    const binD = gridy * 42;
+    const usedW = cols * cellW - gap;
+    const usedD = rows * cellD - gap;
+    const startX = (binW - usedW) / 2 + cellW / 2 - gap / 2;
+    const startY = (binD - usedD) / 2 + cellD / 2 - gap / 2;
+    const newPos = new Map<string, Vec3>();
+    items.forEach((item, i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      newPos.set(item.id, [startX + col * cellW, startY + row * cellD, BASE_HEIGHT_MM]);
+    });
+    set((s) => ({
+      bin: { ...s.bin, gridx, gridy, gridz, gridzMode: "increments" },
+      objects: s.objects.map((o) => {
+        const p = newPos.get(o.id);
+        return p ? ({ ...o, position: p } as PlacedObject) : o;
+      }),
+      ...invalidateRender(s.lastStlBlobUrl),
+    }));
   },
 
   renderBin: async () => {
