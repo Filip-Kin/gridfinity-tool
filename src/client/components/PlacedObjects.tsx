@@ -13,14 +13,21 @@ function StlBody({ obj }: StlBodyProps) {
   const selected = useStore((s) => s.selectedId === obj.id);
   if (!upload) return null;
   const scale = 1 + obj.oversizePct / 100;
+  const [bpx, bpy, bpz] = obj.bakedPostOffset ?? [0, 0, 0];
+  const [brx, bry, brz] = obj.bakedRotation ?? [0, 0, 0];
+  // Mirror the SCAD chain: anchor-centered geometry -> baked rotation -> post-bake re-center.
   return (
-    <mesh geometry={upload.geometry} scale={[scale, scale, scale]} castShadow>
-      <meshStandardMaterial
-        color={selected ? "#ffaa66" : "#ff8855"}
-        transparent
-        opacity={selected ? 0.75 : 0.55}
-      />
-    </mesh>
+    <group position={[bpx, bpy, bpz]} scale={[scale, scale, scale]}>
+      <group rotation={[(brx * Math.PI) / 180, (bry * Math.PI) / 180, (brz * Math.PI) / 180]}>
+        <mesh geometry={upload.geometry} castShadow>
+          <meshStandardMaterial
+            color={selected ? "#ffaa66" : "#ff8855"}
+            transparent
+            opacity={selected ? 0.75 : 0.55}
+          />
+        </mesh>
+      </group>
+    </group>
   );
 }
 
@@ -42,14 +49,17 @@ function TextBody({ obj }: TextBodyProps) {
 }
 
 // Mirror of scad.ts rotatedBboxMinLocalZ — returns the min Z of the STL's
-// scaled bounding box after applying X/Y rotation, in local (pre-translation)
-// coords.
-function rotatedBboxMinLocalZ(obj: PlacedStl, bbox: THREE.Box3): number {
-  const size = bbox.max.clone().sub(bbox.min);
+// scaled bounding box (post-bake) after applying the live user X/Y rotation.
+// bakedRotation is already absorbed into bboxSize, so we only rotate by the
+// user's current X/Y here.
+function rotatedBboxMinLocalZ(obj: PlacedStl): number {
+  const size = obj.bboxSize;
+  if (!size) return 0;
+  const [w, d, h] = size;
   const s = 1 + obj.oversizePct / 100;
-  const sw = (size.x * s) / 2;
-  const sd = (size.y * s) / 2;
-  const sh = size.z * s;
+  const sw = (w * s) / 2;
+  const sd = (d * s) / 2;
+  const sh = h * s;
   const corners: Array<[number, number, number]> = [
     [-sw, -sd, 0], [sw, -sd, 0], [-sw, sd, 0], [sw, sd, 0],
     [-sw, -sd, sh], [sw, -sd, sh], [-sw, sd, sh], [sw, sd, sh],
@@ -70,9 +80,8 @@ function rotatedBboxMinLocalZ(obj: PlacedStl, bbox: THREE.Box3): number {
 // inherits only the tool's Z rotation (yaw) but ignores X/Y tip, so tipping
 // a tool on its side still shows the label on the world cavity floor.
 function StlLabelPreview({ obj }: { obj: PlacedStl }) {
-  const upload = useStore((s) => s.uploads.get(obj.filename));
   const raw = obj.label;
-  if (!raw || !upload) return null;
+  if (!raw) return null;
   const lines = raw
     .split("\n")
     .map((l) => l.trim())
@@ -86,7 +95,7 @@ function StlLabelPreview({ obj }: { obj: PlacedStl }) {
   const longest = Math.max(1, ...lines.map((l) => l.length));
   const plateW = longest * size * 0.65;
   const plateD = size * 1.1;
-  const worldBottomZ = obj.position[2] + rotatedBboxMinLocalZ(obj, upload.bbox);
+  const worldBottomZ = obj.position[2] + rotatedBboxMinLocalZ(obj);
   const labelZ = worldBottomZ - depth + 0.05;
   const groupPos: [number, number, number] = [obj.position[0] + ox, obj.position[1] + oy, labelZ];
   const groupRot: [number, number, number] = [0, 0, (obj.rotationZ * Math.PI) / 180];

@@ -71,6 +71,8 @@ interface AppState {
   alignAllX: () => void;
   alignAllY: () => void;
   dropSelectedToFloor: () => void;
+  bakeSelectedRotation: () => void;
+  resetBakedRotation: () => void;
   fitBinToObjects: () => void;
   autoArrange: () => void;
   renderBin: () => Promise<void>;
@@ -347,6 +349,107 @@ export const useStore = create<AppState>((set, get) => ({
     const cy = (get().bin.gridy * 42) / 2;
     set((s) => ({
       objects: s.objects.map((o) => ({ ...o, position: [o.position[0], cy, o.position[2]] as Vec3 })),
+      ...invalidateRender(s.lastStlBlobUrl),
+    }));
+  },
+
+  // Bake the placement's current rotationX/Y/Z + any existing bakedRotation
+  // into a single new baseline. Re-centers the rotated bbox so the local
+  // origin is at (XY center, Z bottom) of the oriented part. Resets the
+  // user-facing rotationX/Y/Z to 0 so they can keep adjusting from the new
+  // baseline. After this, Auto arrange / labels see the correct dimensions.
+  bakeSelectedRotation: () => {
+    const { selectedId, objects, uploads } = get();
+    if (!selectedId) return;
+    const obj = objects.find((o) => o.id === selectedId);
+    if (!obj || obj.kind !== "stl") return;
+    const stl = obj;
+    const upload = uploads.get(stl.filename);
+    if (!upload) return;
+    // Compose: new baked rotation matrix = userRot * prevBakedRot
+    const prevBaked = stl.bakedRotation ?? [0, 0, 0];
+    const baked = new THREE.Euler(
+      (prevBaked[0] * Math.PI) / 180,
+      (prevBaked[1] * Math.PI) / 180,
+      (prevBaked[2] * Math.PI) / 180,
+      "XYZ",
+    );
+    const user = new THREE.Euler(
+      ((stl.rotationX ?? 0) * Math.PI) / 180,
+      ((stl.rotationY ?? 0) * Math.PI) / 180,
+      (stl.rotationZ * Math.PI) / 180,
+      "XYZ",
+    );
+    const bakedM = new THREE.Matrix4().makeRotationFromEuler(baked);
+    const userM = new THREE.Matrix4().makeRotationFromEuler(user);
+    const combinedM = new THREE.Matrix4().multiplyMatrices(userM, bakedM);
+    const newBaked = new THREE.Euler().setFromRotationMatrix(combinedM, "XYZ");
+    // Apply combined rotation to the original (un-baked) upload bbox corners
+    // and find the re-center translate + new bbox size.
+    const origSize = new THREE.Vector3();
+    upload.bbox.getSize(origSize);
+    const sw = origSize.x / 2;
+    const sd = origSize.y / 2;
+    const sh = origSize.z;
+    const corners: Array<[number, number, number]> = [
+      [-sw, -sd, 0], [sw, -sd, 0], [-sw, sd, 0], [sw, sd, 0],
+      [-sw, -sd, sh], [sw, -sd, sh], [-sw, sd, sh], [sw, sd, sh],
+    ];
+    let minX = Infinity, minY = Infinity, minZ = Infinity;
+    let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+    const v = new THREE.Vector3();
+    for (const [cx, cy, cz] of corners) {
+      v.set(cx, cy, cz).applyMatrix4(combinedM);
+      if (v.x < minX) minX = v.x;
+      if (v.x > maxX) maxX = v.x;
+      if (v.y < minY) minY = v.y;
+      if (v.y > maxY) maxY = v.y;
+      if (v.z < minZ) minZ = v.z;
+      if (v.z > maxZ) maxZ = v.z;
+    }
+    const postOffset: Vec3 = [-(minX + maxX) / 2, -(minY + maxY) / 2, -minZ];
+    const newBboxSize: Vec3 = [maxX - minX, maxY - minY, maxZ - minZ];
+    const newBakedDeg: Vec3 = [
+      (newBaked.x * 180) / Math.PI,
+      (newBaked.y * 180) / Math.PI,
+      (newBaked.z * 180) / Math.PI,
+    ];
+    set((s) => ({
+      objects: s.objects.map((o) =>
+        o.id === selectedId
+          ? ({
+              ...o,
+              rotationX: 0,
+              rotationY: 0,
+              rotationZ: 0,
+              bakedRotation: newBakedDeg,
+              bakedPostOffset: postOffset,
+              bboxSize: newBboxSize,
+            } as PlacedStl)
+          : o,
+      ),
+      ...invalidateRender(s.lastStlBlobUrl),
+    }));
+  },
+
+  resetBakedRotation: () => {
+    const { selectedId, uploads } = get();
+    if (!selectedId) return;
+    set((s) => ({
+      objects: s.objects.map((o) => {
+        if (o.id !== selectedId || o.kind !== "stl") return o;
+        const up = uploads.get((o as PlacedStl).filename);
+        const sz = up ? bbSize(up.bbox) : undefined;
+        return {
+          ...o,
+          rotationX: 0,
+          rotationY: 0,
+          rotationZ: 0,
+          bakedRotation: undefined,
+          bakedPostOffset: undefined,
+          bboxSize: sz ? ([sz.x, sz.y, sz.z] as Vec3) : (o as PlacedStl).bboxSize,
+        } as PlacedStl;
+      }),
       ...invalidateRender(s.lastStlBlobUrl),
     }));
   },

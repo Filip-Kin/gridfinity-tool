@@ -192,6 +192,8 @@ function ObjectsPanel() {
   const alignAllY = useStore((s) => s.alignAllY);
   const centerSelected = useStore((s) => s.centerSelectedXY);
   const dropSelected = useStore((s) => s.dropSelectedToFloor);
+  const bakeRotation = useStore((s) => s.bakeSelectedRotation);
+  const resetBake = useStore((s) => s.resetBakedRotation);
 
   return (
     <div className="section">
@@ -217,7 +219,7 @@ function ObjectsPanel() {
               Align Y
             </button>
           </div>
-          <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+          <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
             <button style={{ flex: 1 }} disabled={!selectedId} onClick={() => centerSelected()}>
               Center selected
             </button>
@@ -225,6 +227,28 @@ function ObjectsPanel() {
               Drop to floor
             </button>
           </div>
+          {(() => {
+            const sel = objects.find((o) => o.id === selectedId);
+            if (!sel || sel.kind !== "stl") return null;
+            const hasUserRot =
+              (sel.rotationX ?? 0) !== 0 || (sel.rotationY ?? 0) !== 0 || sel.rotationZ !== 0;
+            const isBaked = !!sel.bakedRotation;
+            return (
+              <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
+                <button
+                  style={{ flex: 2 }}
+                  disabled={!hasUserRot}
+                  onClick={() => bakeRotation()}
+                  title="Freeze the current X/Y/Z rotation as this STL's new bottom face. Auto-arrange, centering, and label position will use the oriented bbox after this."
+                >
+                  Bake rotation as new bottom
+                </button>
+                <button style={{ flex: 1 }} disabled={!isBaked && !hasUserRot} onClick={() => resetBake()}>
+                  Reset
+                </button>
+              </div>
+            );
+          })()}
         </>
       )}
       {objects.length === 0 && <div className="muted">Upload an STL or add a text label.</div>}

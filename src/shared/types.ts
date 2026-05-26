@@ -42,11 +42,20 @@ export interface PlacedStl {
   // 1000 = meters (Onshape's "Units: Meter" export), 25.4 = inches.
   // Applied as the innermost scale() in the SCAD import block.
   unitScale: number;
-  // Bounding box dimensions [w, d, h] in mm (post unit-scale + anchor centering).
-  // Used to compute where the rotated tool's bottom lands in world coords for
-  // label placement. Sent with the placement so the server doesn't need to
-  // re-parse the STL.
+  // Bounding box dimensions [w, d, h] in mm (post unit-scale + anchor centering
+  // AND post baked-rotation re-centering, if any). Used for layout, label
+  // positioning, and exposure math.
   bboxSize?: Vec3;
+  // Optional "bake" of an orientation as the new bottom face of the tool.
+  // Captures rotationX/Y/Z as a frozen baseline applied BEFORE the user's
+  // per-placement rotation in the SCAD transform chain. After baking,
+  // rotationX/Y/Z are reset to 0, so Auto arrange / Center group / labels
+  // all use the correct oriented bbox.
+  bakedRotation?: Vec3;
+  // Re-center translate applied between the baked rotation and the live
+  // user rotation, so the rotated geometry's local origin lands at
+  // (XY center, Z bottom) of the new (post-bake) bbox.
+  bakedPostOffset?: Vec3;
   // Optional debossed label cut into the floor of this STL's cavity.
   // Multi-line: newlines split into stacked lines, all centered on the STL's
   // XY (plus optional offset). Z auto-tracks the STL's position so it always

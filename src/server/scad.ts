@@ -25,14 +25,24 @@ function renderStl(o: PlacedStl, stlPath: string): string {
   const rx = o.rotationX ?? 0;
   const ry = o.rotationY ?? 0;
   const rz = o.rotationZ;
-  // Reads inside-out: import raw STL → scale to mm → translate by mm anchor →
-  // oversize → rotate (X then Y then Z, OpenSCAD's order) → world position.
-  // Matches the client preview.
+  const [bpx, bpy, bpz] = o.bakedPostOffset ?? [0, 0, 0];
+  const [brx, bry, brz] = o.bakedRotation ?? [0, 0, 0];
+  // Reads inside-out:
+  //   1. import raw STL
+  //   2. scale unitScale (file units -> mm)
+  //   3. translate originalAnchor (centers raw mesh: XY=0, Z bottom=0)
+  //   4. rotate bakedRotation (frozen orientation from "Bake as new bottom")
+  //   5. translate bakedPostOffset (re-centers the rotated bbox)
+  //   6. scale oversize
+  //   7. rotate user rotation (live X/Y/Z gizmo)
+  //   8. translate to world position
   return [
     `// stl: ${o.filename}`,
     `translate([${num(x)}, ${num(y)}, ${num(z)}])`,
     `rotate([${num(rx)}, ${num(ry)}, ${num(rz)}])`,
     `scale([${num(oversize)}, ${num(oversize)}, ${num(oversize)}])`,
+    `translate([${num(bpx)}, ${num(bpy)}, ${num(bpz)}])`,
+    `rotate([${num(brx)}, ${num(bry)}, ${num(brz)}])`,
     `translate([${num(ax)}, ${num(ay)}, ${num(az)}])`,
     `scale([${num(unitScale)}, ${num(unitScale)}, ${num(unitScale)}])`,
     `import("${escapeScadString(stlPath)}", convexity = 10);`,
