@@ -1,0 +1,13 @@
+services:
+  gridfinity-tool:
+    build: .
+    container_name: gridfinity-tool
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./tmp:/app/tmp
+    environment:
+      - PORT=8090
+      - OPENSCAD_BIN=openscad
+      - OPENSCAD_TIMEOUT_MS=300000
