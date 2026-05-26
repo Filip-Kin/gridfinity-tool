@@ -72,7 +72,6 @@ function StlLabelPreview({ obj }: { obj: PlacedStl }) {
             anchorY="middle"
             outlineWidth={0.05}
             outlineColor="#3a1c5a"
-            depthTest={false}
           >
             {line}
           </Text>
@@ -101,18 +100,29 @@ function Draggable({ obj }: DraggableProps) {
   const onChange = () => {
     const g = groupRef.current;
     if (!g) return;
-    updateObject(obj.id, {
-      position: [g.position.x, g.position.y, g.position.z],
-      rotationZ: (g.rotation.z * 180) / Math.PI,
-    });
+    const patch: Partial<PlacedObject> =
+      obj.kind === "stl"
+        ? {
+            position: [g.position.x, g.position.y, g.position.z],
+            rotationX: (g.rotation.x * 180) / Math.PI,
+            rotationY: (g.rotation.y * 180) / Math.PI,
+            rotationZ: (g.rotation.z * 180) / Math.PI,
+          }
+        : {
+            position: [g.position.x, g.position.y, g.position.z],
+            rotationZ: (g.rotation.z * 180) / Math.PI,
+          };
+    updateObject(obj.id, patch);
   };
 
+  const rx = obj.kind === "stl" ? ((obj as PlacedStl).rotationX ?? 0) : 0;
+  const ry = obj.kind === "stl" ? ((obj as PlacedStl).rotationY ?? 0) : 0;
   return (
     <>
       <group
         ref={groupRef}
         position={obj.position}
-        rotation={[0, 0, (obj.rotationZ * Math.PI) / 180]}
+        rotation={[(rx * Math.PI) / 180, (ry * Math.PI) / 180, (obj.rotationZ * Math.PI) / 180]}
         onPointerDown={(e) => {
           e.stopPropagation();
           selectObject(obj.id);
@@ -125,9 +135,9 @@ function Draggable({ obj }: DraggableProps) {
         <TransformControls
           object={groupRef.current}
           mode={mode}
-          showZ={mode === "translate"}
-          showX={mode === "translate" || mode === "rotate"}
-          showY={mode === "translate" || mode === "rotate"}
+          showZ={true}
+          showX={true}
+          showY={true}
           rotationSnap={mode === "rotate" ? Math.PI / 12 : undefined}
           translationSnap={mode === "translate" ? 0.5 : undefined}
           size={0.8}

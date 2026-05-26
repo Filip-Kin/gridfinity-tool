@@ -248,12 +248,46 @@ function ObjectsPanel() {
                     ))}
                   </div>
                 </div>
-                <NumField
-                  label="Rotation Z (deg)"
-                  value={o.rotationZ}
-                  step={5}
-                  onChange={(v) => updateObject(o.id, { rotationZ: v })}
-                />
+                <div className="field">
+                  <label>Rotation X/Y/Z</label>
+                  <div className="row3">
+                    {o.kind === "stl" ? (
+                      <input
+                        type="number"
+                        step="5"
+                        value={((o as PlacedStl).rotationX ?? 0).toFixed(1)}
+                        onChange={(e) => {
+                          const v = parseFloat(e.target.value);
+                          if (Number.isFinite(v)) updateObject(o.id, { rotationX: v });
+                        }}
+                      />
+                    ) : (
+                      <input type="number" disabled value="0" />
+                    )}
+                    {o.kind === "stl" ? (
+                      <input
+                        type="number"
+                        step="5"
+                        value={((o as PlacedStl).rotationY ?? 0).toFixed(1)}
+                        onChange={(e) => {
+                          const v = parseFloat(e.target.value);
+                          if (Number.isFinite(v)) updateObject(o.id, { rotationY: v });
+                        }}
+                      />
+                    ) : (
+                      <input type="number" disabled value="0" />
+                    )}
+                    <input
+                      type="number"
+                      step="5"
+                      value={o.rotationZ.toFixed(1)}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        if (Number.isFinite(v)) updateObject(o.id, { rotationZ: v });
+                      }}
+                    />
+                  </div>
+                </div>
                 {o.kind === "stl" && (
                   <>
                     <NumField

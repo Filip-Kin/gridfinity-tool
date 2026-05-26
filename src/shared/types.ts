@@ -31,6 +31,8 @@ export interface PlacedStl {
   filename: string;
   position: Vec3;
   rotationZ: number;
+  rotationY?: number; // tip the tool forward/back (around Y axis), degrees
+  rotationX?: number; // roll the tool around its long axis (around X), degrees
   oversizePct: number;
   // Applied as innermost translate inside the SCAD import block so the STL's
   // "anchor" (XY center, Z bottom of the *scaled* mesh) lands at `position`.

@@ -22,12 +22,16 @@ function renderStl(o: PlacedStl, stlPath: string): string {
   const [ax, ay, az] = o.anchorOffset ?? [0, 0, 0];
   const oversize = 1 + o.oversizePct / 100;
   const unitScale = o.unitScale ?? 1;
+  const rx = o.rotationX ?? 0;
+  const ry = o.rotationY ?? 0;
+  const rz = o.rotationZ;
   // Reads inside-out: import raw STL → scale to mm → translate by mm anchor →
-  // oversize → rotate → final world position. Matches the client preview.
+  // oversize → rotate (X then Y then Z, OpenSCAD's order) → world position.
+  // Matches the client preview.
   return [
     `// stl: ${o.filename}`,
     `translate([${num(x)}, ${num(y)}, ${num(z)}])`,
-    `rotate([0, 0, ${num(o.rotationZ)}])`,
+    `rotate([${num(rx)}, ${num(ry)}, ${num(rz)}])`,
     `scale([${num(oversize)}, ${num(oversize)}, ${num(oversize)}])`,
     `translate([${num(ax)}, ${num(ay)}, ${num(az)}])`,
     `scale([${num(unitScale)}, ${num(unitScale)}, ${num(unitScale)}])`,
