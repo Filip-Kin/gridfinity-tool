@@ -154,10 +154,16 @@ function ObjectsPanel() {
       {objects.length === 0 && <div className="muted">Upload an STL or add a text label.</div>}
       {objects.map((o) => {
         const isSelected = o.id === selectedId;
+        const upload = o.kind === "stl" ? uploads.get((o as PlacedStl).filename) : undefined;
         const name =
           o.kind === "stl"
-            ? uploads.get((o as PlacedStl).filename)?.originalName ?? o.filename
+            ? upload?.originalName ?? (o as PlacedStl).filename
             : `"${(o as PlacedText).text}"`;
+        let subtitle: string | null = null;
+        if (upload) {
+          const size = upload.bbox.max.clone().sub(upload.bbox.min);
+          subtitle = `${size.x.toFixed(1)} x ${size.y.toFixed(1)} x ${size.z.toFixed(1)} mm${upload.detectedUnit === "m" ? " (from meters)" : ""}`;
+        }
         return (
           <div
             key={o.id}
@@ -184,6 +190,11 @@ function ObjectsPanel() {
                 X
               </button>
             </div>
+            {subtitle && (
+              <div className="muted" style={{ fontSize: 11, marginTop: 2, paddingLeft: 14 }}>
+                {subtitle}
+              </div>
+            )}
             {isSelected && (
               <div className="body">
                 <div className="field">

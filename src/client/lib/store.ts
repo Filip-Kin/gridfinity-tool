@@ -16,10 +16,12 @@ export interface UploadCache {
   filename: string;
   originalName: string;
   geometry: THREE.BufferGeometry;
-  // Bounding box AFTER re-centering. Used for fit-to-bin sizing and previews.
+  // Bounding box AFTER unit normalization + re-centering. Always in mm.
   // Min should be (-w/2, -d/2, 0); max should be (w/2, d/2, h).
   bbox: THREE.Box3;
   anchorOffset: Vec3;
+  unitScale: number;
+  detectedUnit: "mm" | "m";
   sizeBytes: number;
 }
 
@@ -30,6 +32,8 @@ interface ParsedStl {
   geometry: THREE.BufferGeometry;
   bbox: THREE.Box3;
   anchorOffset: Vec3;
+  unitScale: number;
+  detectedUnit: "mm" | "m";
 }
 
 interface AppState {
@@ -70,17 +74,36 @@ function uid(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-// Parse + normalize an STL so the local origin sits at (XY bbox center, Z bottom).
-// Returns the anchorOffset (the translation we applied) so the same offset can be
-// re-applied server-side when emitting the SCAD `import()` block. That keeps the
-// preview and the rendered cavity perfectly aligned.
+// Parse + normalize an STL.
+// 1. STLs have no unit metadata, so we sniff: max bbox dim < 1 ⇒ file is in meters
+//    (Onshape's "Units: Meter" export). Scale by 1000 to bring into mm.
+// 2. Translate so local origin sits at (XY bbox center, Z bottom) of the *scaled* mesh.
+// Both the unit scale and the translate are passed to the server so the SCAD
+// import block reapplies them in the same order, keeping preview ≡ render.
 async function parseStl(buf: ArrayBuffer): Promise<ParsedStl> {
   const g = loader.parse(buf);
   g.computeBoundingBox();
-  const orig = g.boundingBox ?? new THREE.Box3();
-  const cx = (orig.min.x + orig.max.x) / 2;
-  const cy = (orig.min.y + orig.max.y) / 2;
-  const zMin = orig.min.z;
+  const raw = g.boundingBox ?? new THREE.Box3();
+  const rawSize = new THREE.Vector3();
+  raw.getSize(rawSize);
+  const rawMax = Math.max(rawSize.x, rawSize.y, rawSize.z);
+
+  let unitScale = 1;
+  let detectedUnit: "mm" | "m" = "mm";
+  if (rawMax > 0 && rawMax < 1) {
+    unitScale = 1000;
+    detectedUnit = "m";
+    console.log(
+      `[gridfinity] STL appears to be in meters (max dim ${rawMax.toFixed(4)}); scaling by 1000`,
+    );
+    g.scale(unitScale, unitScale, unitScale);
+    g.computeBoundingBox();
+  }
+
+  const bbox = g.boundingBox ?? new THREE.Box3();
+  const cx = (bbox.min.x + bbox.max.x) / 2;
+  const cy = (bbox.min.y + bbox.max.y) / 2;
+  const zMin = bbox.min.z;
   g.translate(-cx, -cy, -zMin);
   g.computeBoundingBox();
   g.computeVertexNormals();
@@ -88,6 +111,8 @@ async function parseStl(buf: ArrayBuffer): Promise<ParsedStl> {
     geometry: g,
     bbox: (g.boundingBox ?? new THREE.Box3()).clone(),
     anchorOffset: [-cx, -cy, -zMin],
+    unitScale,
+    detectedUnit,
   };
 }
 
@@ -158,6 +183,8 @@ export const useStore = create<AppState>((set, get) => ({
           geometry: parsed.geometry,
           bbox: parsed.bbox,
           anchorOffset: parsed.anchorOffset,
+          unitScale: parsed.unitScale,
+          detectedUnit: parsed.detectedUnit,
           sizeBytes: entry.sizeBytes,
         });
       }
@@ -194,6 +221,7 @@ export const useStore = create<AppState>((set, get) => ({
       rotationZ: 0,
       oversizePct: 2,
       anchorOffset: upload.anchorOffset,
+      unitScale: upload.unitScale,
     };
     set((s) => ({
       objects: [...s.objects, obj],

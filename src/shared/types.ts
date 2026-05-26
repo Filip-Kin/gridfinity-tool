@@ -30,9 +30,13 @@ export interface PlacedStl {
   rotationZ: number;
   oversizePct: number;
   // Applied as innermost translate inside the SCAD import block so the STL's
-  // "anchor" (XY center, Z bottom of the original mesh) lands at `position`.
-  // Computed at upload time from the parsed mesh bounding box.
+  // "anchor" (XY center, Z bottom of the *scaled* mesh) lands at `position`.
+  // Computed at upload time from the parsed mesh bounding box after unitScale is applied.
   anchorOffset: Vec3;
+  // Multiplier from the STL file's native units to mm. 1 = already in mm,
+  // 1000 = meters (Onshape's "Units: Meter" export), 25.4 = inches.
+  // Applied as the innermost scale() in the SCAD import block.
+  unitScale: number;
   hidden?: boolean;
 }
 
