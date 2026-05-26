@@ -65,6 +65,7 @@ export interface PlacedStl {
   labelDepth?: number;   // mm, default 0.6
   labelOffsetX?: number; // mm, default 0 — shift label left/right of STL center
   labelOffsetY?: number; // mm, default 0 — shift label fore/aft of STL center
+  labelRotation?: number; // degrees, default 0 — rotation around Z, on top of tool's Z rotation
   hidden?: boolean;
 }
 

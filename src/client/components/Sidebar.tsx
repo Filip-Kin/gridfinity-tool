@@ -401,6 +401,28 @@ function ObjectsPanel() {
                             />
                           </div>
                         </div>
+                        <div className="field">
+                          <label>Label rotation</label>
+                          <div className="row3" style={{ gridTemplateColumns: "1fr auto" }}>
+                            <NumInput
+                              value={(o as PlacedStl).labelRotation ?? 0}
+                              step={90}
+                              onChange={(v) => updateObject(o.id, { labelRotation: v })}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const cur = (o as PlacedStl).labelRotation ?? 0;
+                                const next = (((cur + 90) % 360) + 360) % 360;
+                                updateObject(o.id, { labelRotation: next });
+                              }}
+                              title="Rotate label 90° clockwise"
+                              style={{ minWidth: 36 }}
+                            >
+                              +90°
+                            </button>
+                          </div>
+                        </div>
                       </>
                     )}
                   </>

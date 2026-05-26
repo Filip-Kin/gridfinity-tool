@@ -15,17 +15,23 @@ function StlBody({ obj }: StlBodyProps) {
   const scale = 1 + obj.oversizePct / 100;
   const [bpx, bpy, bpz] = obj.bakedPostOffset ?? [0, 0, 0];
   const [brx, bry, brz] = obj.bakedRotation ?? [0, 0, 0];
-  // Mirror the SCAD chain: anchor-centered geometry -> baked rotation -> post-bake re-center.
+  // Match the SCAD chain EXACTLY: scale(oversize) * translate(bakedPost) *
+  // rotate(baked) * upload-geometry. Three.js combines T+R+S inside a single
+  // group as T*R*S, so to get S*T separated we need them on SEPARATE groups
+  // (otherwise bakedPost wouldn't be scaled by oversize and preview drifts
+  // from render).
   return (
-    <group position={[bpx, bpy, bpz]} scale={[scale, scale, scale]}>
-      <group rotation={[(brx * Math.PI) / 180, (bry * Math.PI) / 180, (brz * Math.PI) / 180]}>
-        <mesh geometry={upload.geometry} castShadow>
-          <meshStandardMaterial
-            color={selected ? "#ffaa66" : "#ff8855"}
-            transparent
-            opacity={selected ? 0.75 : 0.55}
-          />
-        </mesh>
+    <group scale={[scale, scale, scale]}>
+      <group position={[bpx, bpy, bpz]}>
+        <group rotation={[(brx * Math.PI) / 180, (bry * Math.PI) / 180, (brz * Math.PI) / 180]}>
+          <mesh geometry={upload.geometry} castShadow>
+            <meshStandardMaterial
+              color={selected ? "#ffaa66" : "#ff8855"}
+              transparent
+              opacity={selected ? 0.75 : 0.55}
+            />
+          </mesh>
+        </group>
       </group>
     </group>
   );
@@ -98,7 +104,8 @@ function StlLabelPreview({ obj }: { obj: PlacedStl }) {
   const worldBottomZ = obj.position[2] + rotatedBboxMinLocalZ(obj);
   const labelZ = worldBottomZ - depth + 0.05;
   const groupPos: [number, number, number] = [obj.position[0] + ox, obj.position[1] + oy, labelZ];
-  const groupRot: [number, number, number] = [0, 0, (obj.rotationZ * Math.PI) / 180];
+  const labelZRot = obj.rotationZ + (obj.labelRotation ?? 0);
+  const groupRot: [number, number, number] = [0, 0, (labelZRot * Math.PI) / 180];
   return (
     <group position={groupPos} rotation={groupRot} renderOrder={10}>
       {lines.map((line, i) => {

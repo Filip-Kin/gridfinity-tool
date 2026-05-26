@@ -97,7 +97,7 @@ function renderStlLabel(o: PlacedStl): string {
   const ox = o.labelOffsetX ?? 0;
   const oy = o.labelOffsetY ?? 0;
   const [px, py, pz] = o.position;
-  const rz = o.rotationZ;
+  const rz = o.rotationZ + (o.labelRotation ?? 0);
   // World Z of the tool's bottom after rotation.
   const worldBottomZ = pz + rotatedBboxMinLocalZ(o);
   const labelZ = worldBottomZ - depth + 0.05;
