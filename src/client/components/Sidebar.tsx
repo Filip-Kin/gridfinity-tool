@@ -261,8 +261,15 @@ function ObjectsPanel() {
             : `"${(o as PlacedText).text}"`;
         let subtitle: string | null = null;
         if (upload) {
-          const size = upload.bbox.max.clone().sub(upload.bbox.min);
-          subtitle = `${size.x.toFixed(1)} x ${size.y.toFixed(1)} x ${size.z.toFixed(1)} mm${upload.detectedUnit === "m" ? " (from meters)" : ""}`;
+          // Prefer the (possibly post-baked) bboxSize on the placement so the
+          // displayed dimensions match what Auto arrange / Fit bin will use.
+          const stl = o as PlacedStl;
+          const sx = stl.bboxSize?.[0] ?? upload.bbox.max.x - upload.bbox.min.x;
+          const sy = stl.bboxSize?.[1] ?? upload.bbox.max.y - upload.bbox.min.y;
+          const sz = stl.bboxSize?.[2] ?? upload.bbox.max.z - upload.bbox.min.z;
+          const bakedNote = stl.bakedRotation ? " (baked)" : "";
+          const meterNote = upload.detectedUnit === "m" ? " (from meters)" : "";
+          subtitle = `${sx.toFixed(1)} x ${sy.toFixed(1)} x ${sz.toFixed(1)} mm${bakedNote}${meterNote}`;
         }
         return (
           <div

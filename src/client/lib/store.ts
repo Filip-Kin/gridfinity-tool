@@ -481,12 +481,24 @@ export const useStore = create<AppState>((set, get) => ({
         d = 0,
         h = 0;
       if (o.kind === "stl") {
-        const up = uploads.get(o.filename);
-        if (!up) continue;
-        const s = bbSize(up.bbox);
-        w = s.x * scale;
-        d = s.y * scale;
-        h = s.z * scale;
+        // Use the placement's bboxSize (which reflects post-bake orientation)
+        // instead of the original upload.bbox, so layout after baking knows
+        // the tool's real oriented footprint.
+        const stl = o as PlacedStl;
+        let sx: number, sy: number, sz: number;
+        if (stl.bboxSize) {
+          [sx, sy, sz] = stl.bboxSize;
+        } else {
+          const up = uploads.get(o.filename);
+          if (!up) continue;
+          const s = bbSize(up.bbox);
+          sx = s.x;
+          sy = s.y;
+          sz = s.z;
+        }
+        w = sx * scale;
+        d = sy * scale;
+        h = sz * scale;
       } else {
         w = Math.max(2, o.text.length * o.size * 0.55);
         d = o.size;
@@ -542,10 +554,20 @@ export const useStore = create<AppState>((set, get) => ({
       h: number;
     }
     const items: Item[] = stls.map((o) => {
-      const up = uploads.get(o.filename);
       const scale = 1 + o.oversizePct / 100;
-      const s = up ? bbSize(up.bbox) : new THREE.Vector3();
-      return { id: o.id, w: s.x * scale, d: s.y * scale, h: s.z * scale };
+      // Prefer the placement's bboxSize (already reflects bakedRotation), fall
+      // back to the original upload bbox if it isn't populated yet.
+      let sx = 0, sy = 0, sz = 0;
+      if (o.bboxSize) {
+        [sx, sy, sz] = o.bboxSize;
+      } else {
+        const up = uploads.get(o.filename);
+        if (up) {
+          const s = bbSize(up.bbox);
+          sx = s.x; sy = s.y; sz = s.z;
+        }
+      }
+      return { id: o.id, w: sx * scale, d: sy * scale, h: sz * scale };
     });
     const N = items.length;
     const cols = Math.max(1, Math.ceil(Math.sqrt(N)));
