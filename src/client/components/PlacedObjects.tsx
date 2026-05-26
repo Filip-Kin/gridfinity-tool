@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { TransformControls } from "@react-three/drei";
+import { Text, TransformControls } from "@react-three/drei";
 import { useStore } from "../lib/store";
 import type { PlacedObject, PlacedStl, PlacedText } from "@shared/types";
 
@@ -38,6 +38,47 @@ function TextBody({ obj }: TextBodyProps) {
       <boxGeometry args={[w, h, Math.max(0.4, obj.depth)]} />
       <meshStandardMaterial color={color} transparent opacity={selected ? 0.8 : 0.55} />
     </mesh>
+  );
+}
+
+function StlLabelPreview({ obj }: { obj: PlacedStl }) {
+  const raw = obj.label;
+  if (!raw) return null;
+  const lines = raw
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  if (lines.length === 0) return null;
+  const size = obj.labelSize ?? 6;
+  const lineHeight = size * 1.25;
+  const ox = obj.labelOffsetX ?? 0;
+  const oy = obj.labelOffsetY ?? 0;
+  // Match SCAD: label is axis-aligned in world coords (not under STL rotation).
+  const x = obj.position[0] + ox;
+  const y = obj.position[1] + oy;
+  // Just under the STL bottom so it looks like it'll sit on the cavity floor.
+  const z = obj.position[2] - 0.1;
+  return (
+    <group renderOrder={10}>
+      {lines.map((line, i) => {
+        const yOffset = (lines.length - 1) / 2 - i;
+        return (
+          <Text
+            key={`${i}-${line}`}
+            position={[x, y + yOffset * lineHeight, z]}
+            fontSize={size}
+            color="#cf9fff"
+            anchorX="center"
+            anchorY="middle"
+            outlineWidth={0.05}
+            outlineColor="#3a1c5a"
+            depthTest={false}
+          >
+            {line}
+          </Text>
+        );
+      })}
+    </group>
   );
 }
 
@@ -79,6 +120,7 @@ function Draggable({ obj }: DraggableProps) {
       >
         {obj.kind === "stl" ? <StlBody obj={obj} /> : <TextBody obj={obj} />}
       </group>
+      {obj.kind === "stl" && <StlLabelPreview obj={obj} />}
       {selected && ready && groupRef.current && (
         <TransformControls
           object={groupRef.current}

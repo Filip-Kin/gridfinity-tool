@@ -389,9 +389,10 @@ export const useStore = create<AppState>((set, get) => ({
     const gridx = Math.max(1, Math.ceil((footprintX + margin) / 42));
     const gridy = Math.max(1, Math.ceil((footprintY + margin) / 42));
     // Target ~50% exposure plus a few mm buffer (gridfinity base + walls eat
-    // more cavity than the bare BASE_HEIGHT suggests).
+    // more cavity than the bare BASE_HEIGHT suggests). Never go below 4u
+    // (28mm) so the default bin always feels usable.
     const objectSpan = Math.max(0, maxZ - BASE_HEIGHT_MM);
-    const gridz = Math.max(2, Math.ceil((objectSpan / 2 + BASE_HEIGHT_MM + 3) / 7));
+    const gridz = Math.max(4, Math.ceil((objectSpan / 2 + BASE_HEIGHT_MM + 3) / 7));
     const binW = gridx * 42;
     const binD = gridy * 42;
     // Shift every object so the existing layout is centered in the new bin.
@@ -442,7 +443,7 @@ export const useStore = create<AppState>((set, get) => ({
     const needD = rows * cellD + (rows + 1) * targetGap;
     const gridx = Math.max(1, Math.ceil(needW / 42));
     const gridy = Math.max(1, Math.ceil(needD / 42));
-    const gridz = Math.max(2, Math.ceil((maxH / 2 + BASE_HEIGHT_MM + 3) / 7));
+    const gridz = Math.max(4, Math.ceil((maxH / 2 + BASE_HEIGHT_MM + 3) / 7));
     const binW = gridx * 42;
     const binD = gridy * 42;
     const gapX = (binW - cols * cellW) / (cols + 1);
