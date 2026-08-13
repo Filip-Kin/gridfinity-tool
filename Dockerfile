@@ -15,7 +15,11 @@ FROM oven/bun:1.3 AS runtime
 # upstream snapshot AppImage and wrap it. gridfinity-rebuilt-openscad v2.0.0
 # uses dynamic scope features (cgs() inside bin_subdivide) that need a recent
 # OpenSCAD build.
-ARG OPENSCAD_APPIMAGE=OpenSCAD-2025.07.20.ai26208-x86_64.AppImage
+# NOTE: OpenSCAD rotates old nightly snapshots off files.openscad.org, so pinning
+# a specific filename bit-rots (the URL 404s once it ages out). We resolve the
+# NEWEST available snapshot at build time instead. Set OPENSCAD_APPIMAGE to pin a
+# specific file if you ever need reproducibility.
+ARG OPENSCAD_APPIMAGE=
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
        curl ca-certificates \
@@ -23,7 +27,9 @@ RUN apt-get update \
        fonts-liberation fonts-dejavu-core \
        libxcb-cursor0 libgpg-error0 \
   && rm -rf /var/lib/apt/lists/* \
-  && curl -fSL "https://files.openscad.org/snapshots/${OPENSCAD_APPIMAGE}" -o /tmp/openscad.AppImage \
+  && APPIMAGE="${OPENSCAD_APPIMAGE:-$(curl -fsSL https://files.openscad.org/snapshots/ | grep -oE 'OpenSCAD-[0-9.]+\.ai[0-9]+-x86_64\.AppImage' | sort -V | tail -1)}" \
+  && echo "Using OpenSCAD snapshot: ${APPIMAGE}" \
+  && curl -fSL "https://files.openscad.org/snapshots/${APPIMAGE}" -o /tmp/openscad.AppImage \
   && chmod +x /tmp/openscad.AppImage \
   && cd /opt && /tmp/openscad.AppImage --appimage-extract > /dev/null \
   && mv /opt/squashfs-root /opt/openscad \
