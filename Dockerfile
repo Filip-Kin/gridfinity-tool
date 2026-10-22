@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM oven/bun:1.3 AS build
+FROM oven/bun:1.4 AS build
 WORKDIR /app
 COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile || bun install
@@ -8,7 +8,7 @@ COPY tsconfig.json vite.config.ts index.html ./
 COPY src/ ./src/
 RUN bun run build
 
-FROM oven/bun:1.3 AS runtime
+FROM oven/bun:1.4 AS runtime
 
 # Install the apt `openscad` package primarily to pull in all the GL/Qt/xcb
 # runtime libs cleanly (the apt binary itself is too old). Then overlay the
